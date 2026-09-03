@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "stella-executer",
+  "version": "${version}",
+  "name": "Stella Executer",
+  "description": "Executor bridge for Stella Client. Hosts game-side logic and talks to the native client via shared memory.",
+  "authors": [
+    "Stella"
+  ],
+  "license": "MIT",
+  "icon": "assets/stella-executer/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.stella.executer.StellaExecuter"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  },
+  "mixins": [
+    "stella.mixins.json"
+  ]
+}
