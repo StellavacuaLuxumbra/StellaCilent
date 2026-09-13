@@ -41,10 +41,10 @@ public class ModuleTicker {
         for (Module m : ModuleManager.getInstance().getModules()) {
             if (!m.isEnabled()) continue;
             switch (m.getName()) {
-                case "KillAura" -> tickKillAura(mc, m);
+                case "KillAura" -> { /* controlled by C++ Lua brain */ }
                 case "ESP" -> tickEsp(mc, m);
-                case "Speed" -> tickSpeed(mc, m);
-                case "Fly" -> tickFly(mc, m);
+                case "Speed" -> { /* controlled by C++ Lua brain */ }
+                case "Fly" -> { /* controlled by C++ Lua brain */ }
                 case "Sprint" -> tickSprint(mc, m);
                 case "Fullbright" -> tickFullbright(mc, m);
                 case "NoFall" -> tickNoFall(mc, m);
@@ -55,9 +55,9 @@ public class ModuleTicker {
                 case "AutoLog" -> tickAutoLog(mc, m);
                 case "Timer" -> tickTimer(mc, m);
                 case "Freecam" -> tickFreecam(mc, m);
-                case "CrystalAura" -> tickCrystalAura(mc, m);
-                case "SelfTrap" -> tickSelfTrap(mc, m);
-                case "Surround" -> tickSurround(mc, m);
+                case "CrystalAura" -> { /* controlled by C++ Lua brain */ }
+                case "SelfTrap" -> { /* controlled by C++ Lua brain */ }
+                case "Surround" -> { /* controlled by C++ Lua brain */ }
             }
         }
     }
@@ -145,8 +145,8 @@ public class ModuleTicker {
     // ---- Fullbright ----
     private void tickFullbright(MinecraftClient mc, Module m) {
         var brightnessSetting = (dev.stella.executer.gui.setting.SliderSetting) m.getSetting("Brightness");
-        double val = brightnessSetting != null ? brightnessSetting.getValue() : 1000.0;
-        mc.options.getGamma().setValue(val);
+        double val = brightnessSetting != null ? brightnessSetting.getValue() : 1.0;
+        mc.options.getGamma().setValue(Math.min(val, 1.0));
     }
 
     // ---- NoFall ----

@@ -81,6 +81,12 @@ public class StellaExecuter implements ClientModInitializer {
             }
 
             if (client.world != null) {
+                // send world snapshot to C++ brain every tick
+                byte[] snapshot = dev.stella.executer.ipc.WorldSnapshot.serialize(client);
+                if (snapshot.length > 0) {
+                    ipc.send(Protocol.EV_WORLD_SNAPSHOT, snapshot);
+                }
+
                 byte[] p = new byte[8];
                 writeLong(p, 0, client.world.getTime());
                 ipc.send(Protocol.EV_TICK, p);
@@ -234,7 +240,7 @@ public class StellaExecuter implements ClientModInitializer {
             }
             case Protocol.CMD_SET_GAMMA -> {
                 if (mc.options != null && payload.length >= 4) {
-                    mc.options.getGamma().setValue((double) readFloat(payload, 0));
+                    mc.options.getGamma().setValue(Math.max(0.0, Math.min((double) readFloat(payload, 0), 1.0)));
                 }
             }
             case Protocol.CMD_STOP_ALL -> {
@@ -256,6 +262,11 @@ public class StellaExecuter implements ClientModInitializer {
                         }
                     }
                 }
+            }
+
+            // instruction sequence from C++ Lua brain
+            case Protocol.CMD_INSTRUCTION_SEQ -> {
+                dev.stella.executer.ipc.InstructionDecoder.execute(payload);
             }
 
             // queries

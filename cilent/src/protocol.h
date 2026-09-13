@@ -14,7 +14,7 @@ constexpr uint32_t kMagic = 0x53544C31u; // "STL1"
 constexpr uint32_t kVersion = 2;
 
 constexpr uint64_t kHeaderSize = 64;
-constexpr uint32_t kDataCap = 256 * 1024;
+constexpr uint32_t kDataCap = 8 * 1024 * 1024;
 constexpr uint64_t kRegionSize = 16ull + kDataCap;
 constexpr uint64_t kFileSize = kHeaderSize + 2ull * kRegionSize;
 
@@ -67,6 +67,28 @@ constexpr uint32_t kCmdGetInventory  = 35;
 
 // module control
 constexpr uint32_t kCmdSetModule     = 25;
+constexpr uint32_t kCmdSetModuleLua  = 26;
+
+// instruction sequence (C++ Lua brain sends batch actions)
+constexpr uint32_t kCmdInstructionSeq = 60;
+
+// ============================================================
+// Instruction opcodes (inside kCmdInstructionSeq payload)
+// ============================================================
+constexpr uint8_t kInstNop       = 0x00;
+constexpr uint8_t kInstAttack    = 0x01; // [entityId:i32]
+constexpr uint8_t kInstPlace     = 0x02; // [x:i32][y:i32][z:i32][face:u8]
+constexpr uint8_t kInstBreak     = 0x03; // [x:i32][y:i32][z:i32]
+constexpr uint8_t kInstLookAt    = 0x04; // [x:f64][y:f64][z:f64]
+constexpr uint8_t kInstSwing     = 0x05; // [hand:u8]
+constexpr uint8_t kInstSetSlot   = 0x06; // [slot:u8]
+constexpr uint8_t kInstSneak     = 0x07; // [state:u8]
+constexpr uint8_t kInstSprint    = 0x08; // [state:u8]
+constexpr uint8_t kInstVelocity  = 0x09; // [x:f32][y:f32][z:f32]
+constexpr uint8_t kInstUseItem   = 0x0A;
+constexpr uint8_t kInstGamma     = 0x0B; // [value:f32]
+constexpr uint8_t kInstChat      = 0x0C; // [utf8text]
+constexpr uint8_t kInstStopAll   = 0x0D;
 
 // ============================================================
 // Java -> C++  (events)
@@ -94,5 +116,8 @@ constexpr uint32_t kEvBlockAt       = 132;
 constexpr uint32_t kEvRaytrace      = 133;
 constexpr uint32_t kEvPlayerList    = 134;
 constexpr uint32_t kEvInventory     = 135;
+
+// world snapshot (Java sends full game state every tick)
+constexpr uint32_t kEvWorldSnapshot = 200;
 
 } // namespace stella

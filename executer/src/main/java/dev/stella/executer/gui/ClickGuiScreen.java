@@ -23,15 +23,17 @@ public class ClickGuiScreen extends Screen {
     private long searchCursorBlinkTime = 0;
     private boolean searchCursorVisible = false;
 
-    // SunCat-matching colors
-    public static final int DEFAULT_COLOR = 0xDD1E1E1E;
-    public static final int HOVER_COLOR = 0xDC323232;
+    // Deep blue + gray color scheme
+    public static final int DEFAULT_COLOR = 0xDD1A1D23;    // dark gray-blue background
+    public static final int HOVER_COLOR = 0xDC252A33;      // slightly lighter gray
     public static final int ACTIVE_ALPHA = 180;
     public static final int HOVER_ALPHA = 220;
-    public static final int TOP_ALPHA = 210;
-    public static final int BG_ALPHA = 236;
+    public static final int TOP_ALPHA = 230;
+    public static final int BG_ALPHA = 240;
     public static final int ENABLE_TEXT_COLOR = 0xFFFFFFFF;
-    public static final int DEFAULT_TEXT_COLOR = 0xFF888888;
+    public static final int DEFAULT_TEXT_COLOR = 0xFF8899AA; // blue-gray text
+    public static final int ACCENT_COLOR = 0xFF1565C0;       // deep blue accent
+    public static final int ACCENT_LIGHT = 0xFF1E88E5;       // lighter deep blue
     public static final int HEADER_HEIGHT = 22; // categoryHeight(17) + 5
 
     private enum Page { Module }
@@ -278,7 +280,7 @@ public class ClickGuiScreen extends Screen {
             int categoryWidth = Math.max(95, width);
             float headerX = x + ((float) width - (float) categoryWidth) / 2.0f;
             int headerH = height - 5;
-            int topColor = ColorUtil.injectAlpha(0x0078D4, TOP_ALPHA);
+            int topColor = ColorUtil.injectAlpha(0x1565C0, TOP_ALPHA);
             Render2DUtil.fill(ctx, (int) headerX, y, (int) (headerX + categoryWidth), y + headerH, topColor);
 
             // header text
@@ -423,7 +425,7 @@ public class ClickGuiScreen extends Screen {
             float h = btnHeight - 0.5f;
             if (pressed) {
                 int accentA = (int) (ACTIVE_ALPHA + (HOVER_ALPHA - ACTIVE_ALPHA) * hp);
-                int accentColor = ColorUtil.injectAlpha(0x0078D4, accentA);
+                int accentColor = ColorUtil.injectAlpha(0x1565C0, accentA);
                 Render2DUtil.fill(ctx, x, y, x + width, (int) (y + h), accentColor);
             } else {
                 int bgColor = hovered ? HOVER_COLOR : DEFAULT_COLOR;

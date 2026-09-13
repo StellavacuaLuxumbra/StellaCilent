@@ -12,7 +12,7 @@ public final class Protocol {
     public static final int VERSION = 2;
 
     public static final int HEADER_SIZE = 64;
-    public static final int DATA_CAP = 256 * 1024; // power of two
+    public static final int DATA_CAP = 8 * 1024 * 1024; // power of two
     public static final int RING_META = 16;
     public static final long REGION_SIZE = RING_META + DATA_CAP;
     public static final long FILE_SIZE = HEADER_SIZE + 2L * REGION_SIZE;
@@ -73,6 +73,28 @@ public final class Protocol {
 
     // --- module control (C++ sets module state) ---
     public static final int CMD_SET_MODULE      = 25; // [moduleIdU8][enabledU8]
+    public static final int CMD_SET_MODULE_LUA  = 26; // [moduleIdU8][enabledU8] (Lua brain)
+
+    // --- instruction sequence (C++ Lua brain sends batch actions) ---
+    public static final int CMD_INSTRUCTION_SEQ = 60; // [countU16][instruction...]
+
+    // ============================================================
+    // Instruction opcodes (inside CMD_INSTRUCTION_SEQ payload)
+    // ============================================================
+    public static final int INST_NOP           = 0x00;
+    public static final int INST_ATTACK        = 0x01; // [entityId:i32]
+    public static final int INST_PLACE         = 0x02; // [x:i32][y:i32][z:i32][face:u8]
+    public static final int INST_BREAK         = 0x03; // [x:i32][y:i32][z:i32]
+    public static final int INST_LOOK_AT       = 0x04; // [x:f64][y:f64][z:f64]
+    public static final int INST_SWING         = 0x05; // [hand:u8] 0=main 1=off
+    public static final int INST_SET_SLOT      = 0x06; // [slot:u8]
+    public static final int INST_SNEAK         = 0x07; // [state:u8]
+    public static final int INST_SPRINT        = 0x08; // [state:u8]
+    public static final int INST_VELOCITY      = 0x09; // [x:f32][y:f32][z:f32]
+    public static final int INST_USE_ITEM      = 0x0A;
+    public static final int INST_GAMMA         = 0x0B; // [value:f32]
+    public static final int INST_CHAT          = 0x0C; // [utf8text]
+    public static final int INST_STOP_ALL      = 0x0D;
 
     // ============================================================
     // Java → C++  (events)
@@ -100,6 +122,9 @@ public final class Protocol {
     public static final int EV_RAYTRACE       = 133; // [hitU8][xBi32][yBi32][zBi32][faceU8][entityIdI32]
     public static final int EV_PLAYER_LIST    = 134; // [countI32] then per player: [entityIdI32][nameUtf8][xF32][yF32][zF32]
     public static final int EV_INVENTORY      = 135; // [countI32] then per slot: [slotU8][itemIdI32][countU8]
+
+    // --- world snapshot (Java sends full game state every tick) ---
+    public static final int EV_WORLD_SNAPSHOT  = 200; // compressed game state
 
     private Protocol() {}
 }

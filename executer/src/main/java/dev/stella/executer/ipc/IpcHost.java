@@ -118,12 +118,7 @@ public final class IpcHost {
                 }
             }
             if (!didWork) {
-                try {
-                    TimeUnit.MICROSECONDS.sleep(500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
+                Thread.onSpinWait();
             }
         }
     }
@@ -162,26 +157,44 @@ public final class IpcHost {
             return base + Protocol.RING_DATA + (int) ((logicalIdx & 0xFFFFFFFFL) & mask);
         }
 
-        private void putByte(long logicalIdx, byte b) {
-            map.put(dataPos(logicalIdx), b);
-        }
-
-        private byte getByte(long logicalIdx) {
-            return map.get(dataPos(logicalIdx));
-        }
-
         private void putIntAt(long logicalIdx, int value) {
-            putByte(logicalIdx, (byte) value);
-            putByte(logicalIdx + 1, (byte) (value >>> 8));
-            putByte(logicalIdx + 2, (byte) (value >>> 16));
-            putByte(logicalIdx + 3, (byte) (value >>> 24));
+            int pos = dataPos(logicalIdx);
+            map.put(pos, (byte) value);
+            map.put(pos + 1, (byte) (value >>> 8));
+            map.put(pos + 2, (byte) (value >>> 16));
+            map.put(pos + 3, (byte) (value >>> 24));
         }
 
         private int getIntAt(long logicalIdx) {
-            return (getByte(logicalIdx) & 0xFF)
-                    | ((getByte(logicalIdx + 1) & 0xFF) << 8)
-                    | ((getByte(logicalIdx + 2) & 0xFF) << 16)
-                    | ((getByte(logicalIdx + 3) & 0xFF) << 24);
+            int pos = dataPos(logicalIdx);
+            return (map.get(pos) & 0xFF)
+                    | ((map.get(pos + 1) & 0xFF) << 8)
+                    | ((map.get(pos + 2) & 0xFF) << 16)
+                    | ((map.get(pos + 3) & 0xFF) << 24);
+        }
+
+        // Bulk write: handles wrap-around by splitting into two parts
+        private void bulkPut(long logicalIdx, byte[] src, int off, int len) {
+            int pos = dataPos(logicalIdx);
+            int first = Math.min(len, Protocol.DATA_CAP - (pos - base - Protocol.RING_DATA));
+            map.position(pos);
+            map.put(src, off, first);
+            if (first < len) {
+                map.position(base + Protocol.RING_DATA);
+                map.put(src, off + first, len - first);
+            }
+        }
+
+        // Bulk read: handles wrap-around by splitting into two parts
+        private void bulkGet(long logicalIdx, byte[] dst, int off, int len) {
+            int pos = dataPos(logicalIdx);
+            int first = Math.min(len, Protocol.DATA_CAP - (pos - base - Protocol.RING_DATA));
+            map.position(pos);
+            map.get(dst, off, first);
+            if (first < len) {
+                map.position(base + Protocol.RING_DATA);
+                map.get(dst, off + first, len - first);
+            }
         }
 
         // ---- producer side ----
@@ -200,9 +213,7 @@ public final class IpcHost {
             long head = hRaw & 0xFFFFFFFFL;
             putIntAt(head, payload.length);
             putIntAt(head + 4, opcode);
-            for (int i = 0; i < payload.length; i++) {
-                putByte(head + 8 + i, payload[i]);
-            }
+            bulkPut(head + 8, payload, 0, payload.length);
             setHead((int) ((head + total) & 0xFFFFFFFFL));
             return true;
         }
@@ -226,9 +237,7 @@ public final class IpcHost {
             if (out.payload.length != (int) len) {
                 out.payload = new byte[(int) len];
             }
-            for (int i = 0; i < len; i++) {
-                out.payload[i] = getByte(tail + 8 + i);
-            }
+            bulkGet(tail + 8, out.payload, 0, (int) len);
             setTail((int) ((tail + total) & 0xFFFFFFFFL));
             return true;
         }

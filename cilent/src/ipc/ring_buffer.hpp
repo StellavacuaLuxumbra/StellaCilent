@@ -21,6 +21,7 @@ struct Ring {
     std::atomic<uint32_t>* tail; // consumer cursor
     uint8_t* data;
     uint32_t mask; // DATA_CAP - 1
+    uint32_t kDataCap; // DATA_CAP
 
     static constexpr uint32_t kMeta = 16;
 
@@ -29,7 +30,8 @@ struct Ring {
         return Ring{reinterpret_cast<std::atomic<uint32_t>*>(region + 0),
                     reinterpret_cast<std::atomic<uint32_t>*>(region + 4),
                     region + kMeta,
-                    dataCap - 1};
+                    dataCap - 1,
+                    dataCap};
     }
 
     bool write(uint32_t opcode, const void* payload, uint32_t len) {
@@ -45,16 +47,20 @@ struct Ring {
         }
 
         auto put32 = [&](uint64_t idx, uint32_t v) {
-            for (int i = 0; i < 4; ++i) {
-                data[(idx + i) & mask] = static_cast<uint8_t>(v >> (8 * i));
-            }
+            uint32_t pos = static_cast<uint32_t>(idx & mask);
+            std::memcpy(data + pos, &v, 4);
         };
 
         put32(h, len);
         put32(h + 4, opcode);
+
+        // Bulk copy with wrap-around
+        const uint32_t dataPos = static_cast<uint32_t>((h + 8) & mask);
+        const uint32_t first = std::min(len, kDataCap - dataPos);
         const uint8_t* bytes = static_cast<const uint8_t*>(payload);
-        for (uint32_t i = 0; i < len; ++i) {
-            data[(h + 8 + i) & mask] = bytes[i];
+        std::memcpy(data + dataPos, bytes, first);
+        if (first < len) {
+            std::memcpy(data, bytes + first, len - first);
         }
 
         head->store(static_cast<uint32_t>(h + total), std::memory_order_release);
@@ -73,11 +79,10 @@ struct Ring {
             return false;
         }
 
-        auto get32 = [&](uint64_t idx) {
+        auto get32 = [&](uint64_t idx) -> uint32_t {
+            uint32_t pos = static_cast<uint32_t>(idx & mask);
             uint32_t v = 0;
-            for (int i = 0; i < 4; ++i) {
-                v |= static_cast<uint32_t>(data[(idx + i) & mask]) << (8 * i);
-            }
+            std::memcpy(&v, data + pos, 4);
             return v;
         };
 
@@ -89,8 +94,13 @@ struct Ring {
         }
         opcode = get32(t + 4);
         out.resize(static_cast<size_t>(len));
-        for (uint64_t i = 0; i < len; ++i) {
-            out[static_cast<size_t>(i)] = data[(t + 8 + i) & mask];
+
+        // Bulk copy with wrap-around
+        const uint32_t dataPos = static_cast<uint32_t>((t + 8) & mask);
+        const uint32_t first = std::min(static_cast<uint32_t>(len), kDataCap - dataPos);
+        std::memcpy(out.data(), data + dataPos, first);
+        if (first < static_cast<uint32_t>(len)) {
+            std::memcpy(out.data() + first, data, static_cast<size_t>(len) - first);
         }
 
         tail->store(static_cast<uint32_t>(t + total), std::memory_order_release);

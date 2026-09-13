@@ -1,9 +1,13 @@
 // Stella Client - GUI Control Panel (no console).
 // Monitors IPC, shows logs, start/stop injection.
+// Lua brain: C++ computes, Java executes.
 
 #include "protocol.h"
 #include "ipc/ring_buffer.hpp"
 #include "ipc/shared_memory.hpp"
+#include "brain/snapshot.hpp"
+#include "brain/lua_host.hpp"
+#include "instruction.hpp"
 
 #include <atomic>
 #include <cmath>
@@ -49,6 +53,10 @@ stella::Ring g_rx{};
 HANDLE hReader = nullptr;
 HANDLE hTickThread = nullptr;
 
+// ---- Lua brain ----
+stella::LuaHost g_lua;
+stella::WorldSnapshot g_lastSnap;
+
 // ---- log ----
 std::vector<std::string> g_logLines;
 constexpr int kMaxLogLines = 500;
@@ -74,6 +82,14 @@ void SetStatus(const char* text) {
 }
 
 // ---- helpers ----
+std::wstring ExeDir() {
+    wchar_t buf[MAX_PATH]{};
+    DWORD n = ::GetModuleFileNameW(nullptr, buf, MAX_PATH);
+    std::wstring path(buf, n);
+    auto pos = path.find_last_of(L'\\');
+    return (pos != std::wstring::npos) ? path.substr(0, pos + 1) : L"";
+}
+
 std::wstring IpcFilePath() {
     wchar_t temp[MAX_PATH]{};
     DWORD n = ::GetTempPathW(MAX_PATH, temp);
@@ -150,6 +166,20 @@ DWORD WINAPI ReaderThread(LPVOID) {
                     break;
                 case stella::kEvTick:
                     break; // suppress tick spam
+                case stella::kEvWorldSnapshot: {
+                    // Deserialize world snapshot from Java
+                    g_lastSnap = stella::SnapshotDeserializer::deserialize(
+                        payload.data(), (uint32_t)payload.size());
+                    if (g_lastSnap.valid) {
+                        // Run Lua brain: feed snapshot, get instruction sequence
+                        auto instructions = g_lua.tick(g_lastSnap);
+                        if (!instructions.empty()) {
+                            g_tx.write(stella::kCmdInstructionSeq,
+                                       instructions.data(), (uint32_t)instructions.size());
+                        }
+                    }
+                    break;
+                }
                 case stella::kEvPlayerPos:
                     if (payload.size() >= 33) {
                         double px = 0, py = 0, pz = 0;
@@ -176,10 +206,30 @@ DWORD WINAPI ReaderThread(LPVOID) {
                     if (payload.size() >= 2) {
                         int id = payload[0];
                         bool on = payload[1] != 0;
-                        const char* names[] = {"ESP","KillAura","Fullbright","Speed","Fly","Scaffold","NoFall","AutoTotem","ChestStealer","ItemESP","Tracers","Sprint",
-                            "Step","FastFall","Velocity","Criticals","NameTags","HoleESP","NoRender","FakePlayer","AutoLog","Freecam","Timer","Crosshair"};
-                        if (id >= 0 && id < 24) {
-                            snprintf(buf, sizeof(buf), "[MODULE] %s %s", names[id], on ? "ON" : "OFF");
+                        // Sync Lua module state by module ID
+                        if (id == 32) { // CrystalAura
+                            g_lua.setModuleEnabled("CrystalAura", on);
+                            AppendLog(on ? "[LUA] CrystalAura ENABLED" : "[LUA] CrystalAura DISABLED");
+                        } else if (id == 33) { // SelfTrap
+                            g_lua.setModuleEnabled("SelfTrap", on);
+                            AppendLog(on ? "[LUA] SelfTrap ENABLED" : "[LUA] SelfTrap DISABLED");
+                        } else if (id == 34) { // Surround
+                            g_lua.setModuleEnabled("Surround", on);
+                            AppendLog(on ? "[LUA] Surround ENABLED" : "[LUA] Surround DISABLED");
+                        } else if (id == 1) { // KillAura
+                            g_lua.setModuleEnabled("KillAura", on);
+                            AppendLog(on ? "[LUA] KillAura ENABLED" : "[LUA] KillAura DISABLED");
+                        } else if (id == 25) { // HoleESP
+                            g_lua.setModuleEnabled("HoleESP", on);
+                            AppendLog(on ? "[LUA] HoleESP ENABLED" : "[LUA] HoleESP DISABLED");
+                        } else if (id == 3) { // Speed
+                            g_lua.setModuleEnabled("Speed", on);
+                            AppendLog(on ? "[LUA] Speed ENABLED" : "[LUA] Speed DISABLED");
+                        } else if (id == 4) { // Fly
+                            g_lua.setModuleEnabled("Fly", on);
+                            AppendLog(on ? "[LUA] Fly ENABLED" : "[LUA] Fly DISABLED");
+                        } else {
+                            snprintf(buf, sizeof(buf), "[MODULE] id=%d %s", id, on ? "ON" : "OFF");
                             AppendLog(buf);
                         }
                     }
@@ -190,7 +240,7 @@ DWORD WINAPI ReaderThread(LPVOID) {
                     break;
             }
         }
-        if (!didWork) Sleep(1);
+        if (!didWork) SwitchToThread();
     }
     return 0;
 }
@@ -204,8 +254,22 @@ bool DoInject() {
 
     AppendLog("[*] Opening shared memory...");
     const std::wstring path = IpcFilePath();
-    if (!g_shm.open(path, stella::kFileSize)) {
-        AppendLog("[ERROR] Cannot open IPC file. Is Minecraft running with Stella mod?");
+
+    // Retry up to 10 times, 500ms apart — wait for Java to create the file
+    bool opened = false;
+    for (int attempt = 1; attempt <= 10; attempt++) {
+        if (g_shm.open(path, stella::kFileSize)) {
+            opened = true;
+            break;
+        }
+        char rbuf[128];
+        snprintf(rbuf, sizeof(rbuf), "[*] Attempt %d/10 — waiting for IPC file...", attempt);
+        AppendLog(rbuf);
+        Sleep(500);
+    }
+    if (!opened) {
+        AppendLog("[ERROR] Cannot open IPC file after 10 retries.");
+        AppendLog("[ERROR] Make sure Minecraft is running with Stella mod first.");
         SetStatus("IPC failed");
         return false;
     }
@@ -234,6 +298,76 @@ bool DoInject() {
     // handshake
     uint8_t empty[1] = {0};
     g_tx.write(stella::kOpConnect, std::string(""));
+
+    // init Lua brain
+    AppendLog("[*] Initializing Lua brain...");
+    char lbuf[256];
+    std::wstring exeDir = ExeDir();
+    std::string scriptDir(exeDir.begin(), exeDir.end());
+    scriptDir += "scripts\\";
+
+    // Load CrystalAura
+    if (g_lua.loadScript("CrystalAura", scriptDir + "crystal_aura.lua")) {
+        g_lua.setModuleEnabled("CrystalAura", true);
+        AppendLog("[OK] Loaded CrystalAura.lua");
+    } else {
+        snprintf(lbuf, sizeof(lbuf), "[WARN] Failed to load CrystalAura: %s", g_lua.lastError().c_str());
+        AppendLog(lbuf);
+    }
+
+    // Load Surround
+    if (g_lua.loadScript("Surround", scriptDir + "surround.lua")) {
+        g_lua.setModuleEnabled("Surround", true);
+        AppendLog("[OK] Loaded Surround.lua");
+    } else {
+        snprintf(lbuf, sizeof(lbuf), "[WARN] Failed to load Surround: %s", g_lua.lastError().c_str());
+        AppendLog(lbuf);
+    }
+
+    // Load SelfTrap
+    if (g_lua.loadScript("SelfTrap", scriptDir + "selftrap.lua")) {
+        g_lua.setModuleEnabled("SelfTrap", true);
+        AppendLog("[OK] Loaded SelfTrap.lua");
+    } else {
+        snprintf(lbuf, sizeof(lbuf), "[WARN] Failed to load SelfTrap: %s", g_lua.lastError().c_str());
+        AppendLog(lbuf);
+    }
+
+    // Load KillAura
+    if (g_lua.loadScript("KillAura", scriptDir + "kill_aura.lua")) {
+        g_lua.setModuleEnabled("KillAura", true);
+        AppendLog("[OK] Loaded KillAura.lua");
+    } else {
+        snprintf(lbuf, sizeof(lbuf), "[WARN] Failed to load KillAura: %s", g_lua.lastError().c_str());
+        AppendLog(lbuf);
+    }
+
+    // Load HoleESP
+    if (g_lua.loadScript("HoleESP", scriptDir + "hole_esp.lua")) {
+        g_lua.setModuleEnabled("HoleESP", true);
+        AppendLog("[OK] Loaded HoleESP.lua");
+    } else {
+        snprintf(lbuf, sizeof(lbuf), "[WARN] Failed to load HoleESP: %s", g_lua.lastError().c_str());
+        AppendLog(lbuf);
+    }
+
+    // Load Speed
+    if (g_lua.loadScript("Speed", scriptDir + "speed.lua")) {
+        g_lua.setModuleEnabled("Speed", true);
+        AppendLog("[OK] Loaded Speed.lua");
+    } else {
+        snprintf(lbuf, sizeof(lbuf), "[WARN] Failed to load Speed: %s", g_lua.lastError().c_str());
+        AppendLog(lbuf);
+    }
+
+    // Load Fly
+    if (g_lua.loadScript("Fly", scriptDir + "fly.lua")) {
+        g_lua.setModuleEnabled("Fly", true);
+        AppendLog("[OK] Loaded Fly.lua");
+    } else {
+        snprintf(lbuf, sizeof(lbuf), "[WARN] Failed to load Fly: %s", g_lua.lastError().c_str());
+        AppendLog(lbuf);
+    }
 
     // start reader
     hReader = CreateThread(nullptr, 0, ReaderThread, nullptr, 0, nullptr);

@@ -20,20 +20,22 @@ public:
     ~SharedFile() { close(); }
 
     bool open(const std::wstring& path, uint64_t size) {
+        // OPEN_EXISTING: file must already be created by Java side.
+        // Never create or truncate — Java may already have a MappedByteBuffer.
         file_ = ::CreateFileW(path.c_str(),
                               GENERIC_READ | GENERIC_WRITE,
                               FILE_SHARE_READ | FILE_SHARE_WRITE,
                               nullptr,
-                              OPEN_ALWAYS,
+                              OPEN_EXISTING,
                               FILE_ATTRIBUTE_NORMAL,
                               nullptr);
         if (file_ == INVALID_HANDLE_VALUE) {
             return false;
         }
 
-        LARGE_INTEGER li{};
-        li.QuadPart = static_cast<LONGLONG>(size);
-        if (!::SetFilePointerEx(file_, li, nullptr, FILE_BEGIN) || !::SetEndOfFile(file_)) {
+        // Verify file size matches expected (don't resize — avoid corrupting Java's mapping)
+        LARGE_INTEGER fileSize{};
+        if (!::GetFileSizeEx(file_, &fileSize) || fileSize.QuadPart != static_cast<LONGLONG>(size)) {
             close();
             return false;
         }
@@ -45,7 +47,12 @@ public:
         }
 
         view_ = static_cast<uint8_t*>(::MapViewOfFile(mapping_, FILE_MAP_ALL_ACCESS, 0, 0, 0));
-        return view_ != nullptr;
+        if (!view_) {
+            close();
+            return false;
+        }
+
+        return true;
     }
 
     void close() {

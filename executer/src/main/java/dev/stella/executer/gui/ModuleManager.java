@@ -46,7 +46,7 @@ public class ModuleManager {
         modules.add(esp);
 
         Module fullbright = new Module("Fullbright", Category.RENDER, 2);
-        fullbright.add(new SliderSetting("Brightness", 1000.0, 1.0, 1000.0, 1.0, ""));
+        fullbright.add(new SliderSetting("Brightness", 1.0, 0.0, 1.0, 0.1, ""));
         modules.add(fullbright);
 
         Module itemEsp = new Module("ItemESP", Category.RENDER, 9);
@@ -102,7 +102,6 @@ public class ModuleManager {
         modules.add(new dev.stella.executer.modules.SurroundModule());
 
         // Misc
-        modules.add(new dev.stella.executer.modules.FakePlayerModule());
         modules.add(new dev.stella.executer.modules.AutoLogModule());
     }
 
