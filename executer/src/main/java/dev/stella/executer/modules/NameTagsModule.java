@@ -5,7 +5,7 @@ import dev.stella.executer.gui.setting.*;
 
 public class NameTagsModule extends ModBase {
     public NameTagsModule() {
-        super("NameTags", Category.RENDER, 24);
+        super("NameTags", Category.RENDER, 25);
         add(new SliderSetting("Scale", 1.5, 0.5, 5.0, 0.1, "x"));
         add(new BooleanSetting("Health", true));
         add(new BooleanSetting("Armor", true));

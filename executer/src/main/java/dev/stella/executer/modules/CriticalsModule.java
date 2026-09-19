@@ -5,7 +5,7 @@ import dev.stella.executer.gui.setting.*;
 
 public class CriticalsModule extends ModBase {
     public CriticalsModule() {
-        super("Criticals", Category.COMBAT, 23);
+        super("Criticals", Category.COMBAT, 13);
         add(new EnumSetting<>("Mode", Mode.MINI_JUMP));
     }
 

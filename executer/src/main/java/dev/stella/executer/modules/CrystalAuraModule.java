@@ -14,7 +14,7 @@ import java.util.List;
 
 public class CrystalAuraModule extends ModBase {
     public CrystalAuraModule() {
-        super("CrystalAura", Category.COMBAT, 32);
+        super("CrystalAura", Category.COMBAT, 14);
         add(new SliderSetting("Range", 5.0, 1.0, 6.0, 0.1, ""));
         add(new SliderSetting("PlaceRange", 5.0, 1.0, 6.0, 0.1, ""));
         add(new SliderSetting("MinDmg", 6.0, 1.0, 20.0, 0.5, ""));

@@ -476,7 +476,7 @@ public class ClickGuiScreen extends Screen {
             if (mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + btnHeight) {
                 if (button == 0) {
                     module.toggle();
-                    dev.stella.executer.StellaExecuter.sendModuleToggleToCpp(module.getModuleId(), module.isEnabled());
+                    // no-op: pure Java mode
                     return true;
                 }
                 if (button == 1) {

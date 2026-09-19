@@ -5,7 +5,7 @@ import dev.stella.executer.gui.setting.*;
 
 public class NoRenderModule extends ModBase {
     public NoRenderModule() {
-        super("NoRender", Category.RENDER, 26);
+        super("NoRender", Category.RENDER, 27);
         add(new BooleanSetting("Pumpkins", true));
         add(new BooleanSetting("Fire", true));
         add(new BooleanSetting("Fog", true));

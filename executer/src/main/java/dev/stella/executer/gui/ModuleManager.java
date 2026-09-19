@@ -76,33 +76,39 @@ public class ModuleManager {
         // Misc
         // (add misc modules here as needed)
 
-        // === New modules (SunCat parity) ===
+        // === New modules (SunCat parity, unique IDs 12-32) ===
 
         // Combat
         modules.add(new dev.stella.executer.modules.VelocityModule());
         modules.add(new dev.stella.executer.modules.CriticalsModule());
+        modules.add(new dev.stella.executer.modules.CrystalAuraModule());
+        modules.add(new dev.stella.executer.modules.SelfTrapModule());
+        modules.add(new dev.stella.executer.modules.SurroundModule());
+        modules.add(new dev.stella.executer.modules.AutoClickerModule());
+        modules.add(new dev.stella.executer.modules.AimAssistModule());
+        modules.add(new dev.stella.executer.modules.ReachModule());
+
+        // Player
+        modules.add(new dev.stella.executer.modules.AutoArmorModule());
+        modules.add(new dev.stella.executer.modules.FastBreakModule());
+        modules.add(new dev.stella.executer.modules.AutoLogModule());
+        modules.add(new dev.stella.executer.modules.FreecamModule());
+        modules.add(new dev.stella.executer.modules.TimerModule());
+        modules.add(new dev.stella.executer.modules.FastFallModule());
+        modules.add(new dev.stella.executer.modules.BlinkModule());
+        modules.add(new dev.stella.executer.modules.AntiHungerModule());
+        modules.add(new dev.stella.executer.modules.FastUseModule());
+        modules.add(new dev.stella.executer.modules.AutoFishModule());
 
         // Movement
         modules.add(new dev.stella.executer.modules.StepModule());
-
-        // Player
-        modules.add(new dev.stella.executer.modules.FastFallModule());
-        modules.add(new dev.stella.executer.modules.FreecamModule());
-        modules.add(new dev.stella.executer.modules.TimerModule());
+        modules.add(new dev.stella.executer.modules.NoSlowDownModule());
 
         // Render
         modules.add(new dev.stella.executer.modules.NameTagsModule());
         modules.add(new dev.stella.executer.modules.HoleEspModule());
         modules.add(new dev.stella.executer.modules.NoRenderModule());
         modules.add(new dev.stella.executer.modules.CrosshairModule());
-
-        // Combat - NCP Bypass
-        modules.add(new dev.stella.executer.modules.CrystalAuraModule());
-        modules.add(new dev.stella.executer.modules.SelfTrapModule());
-        modules.add(new dev.stella.executer.modules.SurroundModule());
-
-        // Misc
-        modules.add(new dev.stella.executer.modules.AutoLogModule());
     }
 
     public static ModuleManager getInstance() {

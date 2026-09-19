@@ -5,7 +5,7 @@ import dev.stella.executer.gui.setting.*;
 
 public class SurroundModule extends ModBase {
     public SurroundModule() {
-        super("Surround", Category.COMBAT, 34);
+        super("Surround", Category.COMBAT, 16);
         add(new SliderSetting("Delay", 50.0, 0.0, 200.0, 10.0, "ms"));
         add(new EnumSetting<>("Mode", Mode.OBSIDIAN));
         add(new BooleanSetting("Expand", true));
