@@ -168,6 +168,11 @@ extends Module {
         return null;
     }
 
+    /** Stella：供 CombatManager 判断本模块当前是否有作业（Smart 互斥用）。 */
+    public boolean hasWork() {
+        return this.currentPos != null || this.displayTarget != null;
+    }
+
     @Override
     public void onRender3D(MatrixStack matrixStack) {
         if (this.displayTarget != null && this.currentPos != null) {
@@ -177,7 +182,7 @@ extends Module {
 
     @EventListener
     public void onRotate(RotationEvent event) {
-        if (this.currentPos != null && this.rotate.getValue() && this.shouldYawStep() && this.directionVec != null) {
+        if (CombatManager.allows(this) && this.currentPos != null && this.rotate.getValue() && this.shouldYawStep() && this.directionVec != null) {
             event.setTarget(this.directionVec, this.steps.getValueFloat(), this.priority.getValueFloat());
         }
     }
@@ -190,6 +195,10 @@ extends Module {
 
     public void onThread() {
         if (this.isOff() || AutoAnchor.nullCheck()) {
+            return;
+        }
+        if (!CombatManager.allows(this)) {
+            this.currentPos = null;
             return;
         }
         if (this.thread.getValue()) {
@@ -243,6 +252,10 @@ extends Module {
             return;
         }
         if (this.timing.is(Timing.Pre) && event.isPost() || this.timing.is(Timing.Post) && event.isPre()) {
+            return;
+        }
+        if (!CombatManager.allows(this)) {
+            this.currentPos = null;
             return;
         }
         int anchor = this.inventorySwap.getValue() ? InventoryUtil.findBlockInventorySlot(Blocks.RESPAWN_ANCHOR) : InventoryUtil.findBlock(Blocks.RESPAWN_ANCHOR);

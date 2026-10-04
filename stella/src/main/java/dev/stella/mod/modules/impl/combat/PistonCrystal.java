@@ -188,6 +188,11 @@ public class PistonCrystal extends Module
     @EventListener
     public void onUpdate(final UpdateEvent event) {
         this.onTick();
+        if (!CombatManager.allows(this)) {
+            this.target = null;
+            this.bestPos = null;
+            return;
+        }
         this.target = CombatUtil.getClosestEnemy(this.range.getValue());
         if (this.target == null) {
             return;
@@ -275,6 +280,11 @@ public class PistonCrystal extends Module
             return this.target.getName().getString();
         }
         return null;
+    }
+    
+    /** Stella：供 CombatManager 判断本模块当前是否有作业（Smart 互斥用）。 */
+    public boolean hasWork() {
+        return this.target != null || this.bestPos != null;
     }
     
     private void getBestPos(final BlockPos pos) {

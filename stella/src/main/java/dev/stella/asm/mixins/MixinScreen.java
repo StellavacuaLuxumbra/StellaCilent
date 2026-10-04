@@ -39,6 +39,7 @@ import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -53,18 +54,14 @@ public class MixinScreen {
     @Shadow
     protected MinecraftClient client;
 
+    /** Stella: 记录 render HEAD 是否已 push GUI 缩放矩阵，保证 TAIL 必然配对 pop */
+    @Unique
+    private boolean stella$scalePushed = false;
+
     @Inject(method={"renderBackground"}, at={@At(value="HEAD")}, cancellable=true)
     public void renderInGameBackgroundHook(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        // 为OptionsScreen添加GUI缩放支持
-        if ((Object)this instanceof net.minecraft.client.gui.screen.option.OptionsScreen) {
-            ClickGui gui = ClickGui.getInstance();
-            if (gui != null && gui.guiScale.getValueFloat() != 1.0f) {
-                float scale = gui.guiScale.getValueFloat();
-                context.getMatrices().push();
-                context.getMatrices().scale(scale, scale, 1.0f);
-                context.getMatrices().translate(0.0f, 0.0f, 0.0f);
-            }
-        }
+        // 注意：此处不再 push GUI 缩放矩阵 —— 缩放由 render HEAD 推入、render TAIL 弹出，
+        // 否则每帧多一次 push 且无配对 pop，选项界面会逐帧累积缩放（SunCat 原 bug）
         ci.cancel();
         if (this.client.world == null) {
             boolean isLoading;
@@ -136,7 +133,7 @@ public class MixinScreen {
 
     @Inject(method={"render"}, at={@At(value="HEAD")})
     public void renderHook(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        // 为OptionsScreen添加GUI缩放支持
+        // 为OptionsScreen添加GUI缩放支持（push 由 TAIL 通过 stella$scalePushed 配对弹出）
         if ((Object)this instanceof net.minecraft.client.gui.screen.option.OptionsScreen) {
             ClickGui gui = ClickGui.getInstance();
             if (gui != null && gui.guiScale.getValueFloat() != 1.0f) {
@@ -144,6 +141,7 @@ public class MixinScreen {
                 context.getMatrices().push();
                 context.getMatrices().scale(scale, scale, 1.0f);
                 context.getMatrices().translate(0.0f, 0.0f, 0.0f);
+                this.stella$scalePushed = true;
             }
         }
     }
@@ -151,11 +149,9 @@ public class MixinScreen {
     @Inject(method={"render"}, at={@At(value="TAIL")})
     public void renderTailHook(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         // 为OptionsScreen添加GUI缩放支持
-        if ((Object)this instanceof net.minecraft.client.gui.screen.option.OptionsScreen) {
-            ClickGui gui = ClickGui.getInstance();
-            if (gui != null && gui.guiScale.getValueFloat() != 1.0f) {
-                context.getMatrices().pop();
-            }
+        if (this.stella$scalePushed) {
+            this.stella$scalePushed = false;
+            context.getMatrices().pop();
         }
     }
     

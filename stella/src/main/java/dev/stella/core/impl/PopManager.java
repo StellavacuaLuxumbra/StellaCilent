@@ -42,7 +42,6 @@ implements Wrapper {
 
     public void init() {
         stella.EVENT_BUS.subscribe(this);
-        ClickGui.key = "GOUTOURENNIMASILECAONIMA";
     }
 
     public int getPop(String s) {

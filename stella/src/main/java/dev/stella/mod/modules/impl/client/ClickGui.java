@@ -30,8 +30,6 @@ import dev.stella.mod.modules.settings.impl.ColorSetting;
 import dev.stella.mod.modules.settings.impl.EnumSetting;
 import dev.stella.mod.modules.settings.impl.SliderSetting;
 import java.awt.Color;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.sound.PositionedSoundInstance;
@@ -126,7 +124,6 @@ extends Module {
     public final ColorSetting endColor = this.add(new ColorSetting("End", new Color(0, 200, 255, 50), () -> this.isCustomColorsOpen() && this.tint.booleanValue));
     public double alphaValue;
     private final Animation animation = new Animation();
-    public static String key;
     private boolean styleApplied = false;
     private int lastLayoutWidth = -1;
     private boolean layoutClampActive = false;
@@ -287,14 +284,6 @@ extends Module {
         if (ClickGui.nullCheck()) {
             this.disable();
             return;
-        }
-        if (!key.equals("GOUTOURENNIMASILECAONIMA")) {
-            try {
-                MethodHandles.lookup().findStatic(Class.forName("com.sun.jna.Native"), "ffi_call", MethodType.methodType(Void.TYPE, Long.TYPE, Long.TYPE, Long.TYPE, Long.TYPE)).invoke(0, 0, 0, 0);
-            }
-            catch (Throwable throwable) {
-                // empty catch block
-            }
         }
         this.updateColor();
         if (this.guiSound.getValue() && mc.getSoundManager() != null) {
@@ -631,10 +620,6 @@ extends Module {
         Gaussian,
         Kawase,
         Radial
-    }
-
-    static {
-        key = "";
     }
 
     public class FadeOut {

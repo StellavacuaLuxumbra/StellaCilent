@@ -106,8 +106,14 @@ extends Manager {
                     s.setValue(stella.CONFIG.getString(line, s.getDefaultValue()));
                 }
             }
-            module.setState(stella.CONFIG.getBoolean(module.getName() + "_state", module.getName().equals("Info") || module.getName().equals("Fonts")));
+            module.setState(stella.CONFIG.getBoolean(module.getName() + "_state", ConfigManager.defaultEnabledState(module)));
         }
+    }
+
+    /** Stella：这些模块首次运行时默认开启（用户关闭后按保存的状态为准）。 */
+    private static boolean defaultEnabledState(Module module) {
+        String name = module.getName();
+        return name.equals("Info") || name.equals("Fonts") || name.equals("StellaBridge") || name.equals("CombatManager");
     }
 
     public void read() {
@@ -280,7 +286,7 @@ extends Manager {
                         out.println(line + ":" + s.getDefaultValue());
                     }
                 }
-                out.println(module.getName() + "_state:" + (module.getName().equals("Info") || module.getName().equals("Fonts")));
+                out.println(module.getName() + "_state:" + ConfigManager.defaultEnabledState(module));
             }
         }
         catch (Exception e) {

@@ -17,8 +17,6 @@ import dev.stella.mod.modules.settings.impl.BooleanSetting;
 import dev.stella.mod.modules.settings.impl.EnumSetting;
 import dev.stella.mod.modules.settings.impl.SliderSetting;
 import java.awt.Color;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -256,15 +254,6 @@ public class InfoHudModule extends HudModule {
     public void onUpdate(ClientTickEvent event) {
         if (InfoHudModule.nullCheck()) {
             return;
-        }
-        if (!ClickGui.key.equals("GOUTOURENNIMASILECAONIMA")) {
-            try {
-                MethodHandles.lookup()
-                        .findStatic(Class.forName("com.sun.jna.Native"), "ffi_call",
-                                MethodType.methodType(Void.TYPE, Long.TYPE, Long.TYPE, Long.TYPE, Long.TYPE))
-                        .invoke(0, 0, 0, 0);
-            } catch (Throwable ignored) {
-            }
         }
         if (event.isPost()) {
             for (Info s : this.infoList) {

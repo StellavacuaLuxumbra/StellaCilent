@@ -76,6 +76,7 @@ public class ModuleManager
         this.addModule(new NoTerrainScreen());
         this.addModule(new AutoCrystal());
         this.addModule(new PistonCrystal());
+        this.addModule(new CombatManager());
         this.addModule(new Ambience());
         this.addModule(new AntiHunger());
         this.addModule(new AntiVoid());

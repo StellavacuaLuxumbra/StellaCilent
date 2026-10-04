@@ -54,7 +54,6 @@ import dev.stella.api.utils.world.BlockPosX;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.asm.accessors.IEntity;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.ClickGui;
 import dev.stella.mod.modules.impl.client.ClientSetting;
 import dev.stella.mod.modules.impl.exploit.Blink;
 import dev.stella.mod.modules.impl.movement.ElytraFly;
@@ -68,8 +67,6 @@ import dev.stella.mod.modules.settings.impl.ColorSetting;
 import dev.stella.mod.modules.settings.impl.EnumSetting;
 import dev.stella.mod.modules.settings.impl.SliderSetting;
 import java.awt.Color;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import net.minecraft.block.Blocks;
@@ -254,6 +251,10 @@ extends Module {
         if (this.isOff()) {
             return;
         }
+        if (!CombatManager.allows(this)) {
+            this.crystalPos = null;
+            return;
+        }
         if (this.thread.getValue()) {
             this.updateCrystalPos();
         }
@@ -264,15 +265,13 @@ extends Module {
         if (AutoCrystal.nullCheck()) {
             return;
         }
-        if (!ClickGui.key.equals("GOUTOURENNIMASILECAONIMA")) {
-            try {
-                MethodHandles.lookup().findStatic(Class.forName("com.sun.jna.Native"), "ffi_call", MethodType.methodType(Void.TYPE, Long.TYPE, Long.TYPE, Long.TYPE, Long.TYPE)).invoke(0, 0, 0, 0);
-            }
-            catch (Throwable throwable) {
-                // empty catch block
-            }
-        }
         if (this.timing.is(Timing.Pre) && event.isPost() || this.timing.is(Timing.Post) && event.isPre()) {
+            return;
+        }
+        if (!CombatManager.allows(this)) {
+            this.crystalPos = null;
+            this.tempPos = null;
+            this.basePos = null;
             return;
         }
         if (!this.thread.getValue()) {
@@ -290,7 +289,7 @@ extends Module {
 
     @Override
     public void onRender3D(MatrixStack matrixStack) {
-        if (this.interactOnRender.getValue() && !this.shouldReturn()) {
+        if (this.interactOnRender.getValue() && CombatManager.allows(this) && !this.shouldReturn()) {
             this.doInteract();
             BlockPos basePos = this.basePos;
             if (this.basePlace.getValue() && basePos != null && BlockUtil.canPlace(basePos)) {
@@ -335,7 +334,7 @@ extends Module {
 
     @EventListener
     public void onRotate(RotationEvent event) {
-        if (this.rotate.getValue() && this.shouldYawStep() && this.directionVec != null && this.displayTarget != null && !this.noPosTimer.passed(1000L) && !this.shouldReturn()) {
+        if (CombatManager.allows(this) && this.rotate.getValue() && this.shouldYawStep() && this.directionVec != null && this.displayTarget != null && !this.noPosTimer.passed(1000L) && !this.shouldReturn()) {
             event.setTarget(this.directionVec, this.steps.getValueFloat(), this.priority.getValueFloat());
         }
     }
@@ -493,9 +492,17 @@ extends Module {
     private void onEntity(EntitySpawnedEvent event) {
         EndCrystalEntity crystal;
         Entity entity = event.getEntity();
+        if (!CombatManager.allows(this)) {
+            return;
+        }
         if (this.onAdd.getValue() && entity instanceof EndCrystalEntity && (crystal = (EndCrystalEntity)entity).getBlockPos().equals((Object)this.syncPos)) {
             this.doBreak(crystal);
         }
+    }
+
+    /** Stella：供 CombatManager 判断本模块当前是否有作业（Smart 互斥用）。 */
+    public boolean hasWork() {
+        return this.crystalPos != null || this.displayTarget != null;
     }
 
     public boolean canPlaceCrystal(BlockPos pos, boolean ignoreCrystal, boolean ignoreItem) {

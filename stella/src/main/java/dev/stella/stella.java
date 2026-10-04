@@ -83,15 +83,8 @@ public class stella implements ModInitializer {
         this.register();
         MODULE = new ModuleManager();
 
-        // Stella 特性：Lua 脚本运行时 + IPC 桥默认开启
-        // （后续 CONFIG.load() 若保存了关闭状态，会按用户配置覆盖）
-        for (dev.stella.mod.modules.Module m : MODULE.getModules()) {
-            if (m instanceof dev.stella.mod.modules.impl.client.StellaBridge && m.isOff()) {
-                m.enable();
-                break;
-            }
-        }
-
+        // StellaBridge / CombatManager 等特性模块的默认开启状态由
+        // ConfigManager.defaultEnabledState() 决定（用户保存的关闭状态优先）
         CONFIG = new ConfigManager();
         HOLE = new HoleManager();
         COMMAND = new CommandManager();
