@@ -10,7 +10,7 @@
 
 | 项 | 旧 | 新 |
 |----|----|----|
-| Java 主体 | `executer/`（自研双进程执行器） | `stella/`（SunCat 源码魔改，包 `dev.stella`，mod id `stella`，版本 3.0.0） |
+| Java 主体 | `executer/`（自研双进程执行器） | `stella/`（SunCat 源码魔改，包 `dev.stella`，mod id `stella`，版本 1.0） |
 | 混淆 | protection 包 / obfuscate.json / crazy-obfuscator / Lua XOR / RaspProtection | **全部删除**，Lua 明文加载，构建无加密步骤 |
 | 品牌 | 执行器+ClickGUI | 保留 Stella 名称；`suncat*` → `stella*`（类/包/资源/accesswidener/mixins 全部重命名） |
 | Lua/IPC 特性 | `executer/` 内 LuaScriptHost + IpcHost | 嫁接进 `stella/`：`dev.stella.brain.*` + `dev.stella.ipc.*`，由模块 `StellaBridge` 承载（默认开启） |
@@ -29,8 +29,11 @@
 
 ```
 build.bat                      # 等价于 cd stella && gradlew.bat build 并部署
-cd stella && gradlew.bat build # 产物 stella/build/libs/stella-3.0.0.jar
+cd stella && gradlew.bat build # 产物 stella/build/libs/stella-1.0.jar
 ```
+
+- **版本号规则**：版本仅在用户明确指示时变更；当前 **1.0**。唯一来源是
+  `stella/gradle.properties` 的 `mod_version`（`fabric.mod.json` 用 `${version}` 模板引用），禁止擅自升级版本号。
 
 - 必须用 **Gradle 8.11 wrapper**（fabric-loom 1.9.2 要求 ≥8.11；系统 Gradle 8.10.2 不可用）
 - `JAVA_HOME=C:\Program Files\Zulu\zulu-21`

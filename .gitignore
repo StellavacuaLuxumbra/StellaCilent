@@ -5,6 +5,7 @@
 
 # === Build outputs ===
 build/
+**/build/
 out/
 bin/
 *.class
@@ -16,6 +17,9 @@ bin/
 *.dll
 *.so
 *.dylib
+*.pdb
+*.ilk
+*.exp
 
 # === Archives / large binaries ===
 *.jar
@@ -26,6 +30,7 @@ bin/
 *.rar
 *.tar
 *.tar.gz
+*.ttf.part
 
 # Keep gradle wrapper jar (small, needed to run ./gradlew)
 !**/gradle/wrapper/gradle-wrapper.jar

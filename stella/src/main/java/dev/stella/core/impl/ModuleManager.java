@@ -69,7 +69,6 @@ public class ModuleManager
         // this.addModule(new ModuleLacrymiraAura());
         // this.addModule(new CatCrystal());
         this.addModule(new AutoMace());
-        this.addModule(new TpAnchorAura());
         this.addModule(new AntiExplosion());
         this.addModule(new Fonts());
         this.addModule(new NoTerrainScreen());

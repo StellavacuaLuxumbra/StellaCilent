@@ -16,7 +16,7 @@
 3. 删除全部混淆设施（protection / obfuscate.json / crazy-obfuscator /
    build.gradle 加密任务 / Lua XOR / RaspProtection），Lua 脚本改为明文加载。
 4. 构建改用 `cd stella && gradlew.bat build`（Gradle 8.11 + fabric-loom 1.9.2），
-   产物 `stella-3.0.0.jar`，已于 2026-10-04 编译通过。
+   产物 `stella-1.0.jar`（版本号仅由用户指示变更，当前 1.0），已于 2026-10-04 编译通过。
 
 因此下文阶段 1-8（自研渲染/模块/HUD/Mixin/配置）**不再适用**，仅在需要参考
 实现细节、或为 `executer/` 做对照时查阅。新的待办见 `HANDOFF.md` 顶部

@@ -35,6 +35,8 @@ import dev.stella.api.utils.entity.PlayerEntityPredict;
 import dev.stella.api.utils.math.AnimateUtil;
 import dev.stella.api.utils.math.ExplosionUtil;
 import dev.stella.api.utils.math.Timer;
+import dev.stella.api.utils.path.TPUtils;
+import dev.stella.api.utils.path.TpUtil;
 import dev.stella.api.utils.player.EntityUtil;
 import dev.stella.api.utils.player.InventoryUtil;
 import dev.stella.api.utils.render.ColorUtil;
@@ -114,6 +116,10 @@ extends Module {
     private final SliderSetting breakDelay = this.add(new SliderSetting("BreakDelay", 100.0, 0.0, 500.0, 1.0, () -> this.page.getValue() == Page.General).setSuffix("ms"));
     private final SliderSetting spamDelay = this.add(new SliderSetting("SpamDelay", 200.0, 0.0, 1000.0, 1.0, () -> this.page.getValue() == Page.General).setSuffix("ms"));
     private final SliderSetting updateDelay = this.add(new SliderSetting("UpdateDelay", 200.0, 0.0, 1000.0, 1.0, () -> this.page.getValue() == Page.General).setSuffix("ms"));
+    private final BooleanSetting tpAssist = this.add(new BooleanSetting("TpAssist", false, () -> this.page.getValue() == Page.Tp));
+    private final SliderSetting tpRange = this.add(new SliderSetting("TpRange", 16.0, 4.0, 64.0, 0.5, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()).setSuffix("m"));
+    private final BooleanSetting tpBack = this.add(new BooleanSetting("TpBack", true, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
+    private final EnumSetting<TPUtils.TeleportType> tpMode = this.add(new EnumSetting<TPUtils.TeleportType>("TpMode", TPUtils.TeleportType.New, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
     private final BooleanSetting rotate = this.add(new BooleanSetting("Rotate", true, () -> this.page.getValue() == Page.Rotate).setParent());
     private final BooleanSetting yawStep = this.add(new BooleanSetting("YawStep", true, () -> this.rotate.isOpen() && this.page.getValue() == Page.Rotate).setParent());
     private final BooleanSetting whenElytra = this.add(new BooleanSetting("FallFlying", true, () -> this.rotate.isOpen() && this.yawStep.isOpen() && this.page.getValue() == Page.Rotate));
@@ -146,6 +152,7 @@ extends Module {
     public BlockPos tempPos;
     public double lastDamage;
     double fade = 0.0;
+    private boolean tpActive;
     BlockPos assistPos;
 
     public AutoAnchor() {
@@ -300,6 +307,7 @@ extends Module {
             this.calc();
         }
         if ((pos = this.currentPos) != null) {
+            this.runWithTp(pos.toCenterPos(), Math.min(this.range.getValue(), 4.5), () -> {
             boolean shouldSpam;
             if (this.breakCrystal.getValue()) {
                 CombatUtil.attackCrystal(new BlockPos((Vec3i)pos), this.rotate.getValue(), false);
@@ -310,7 +318,7 @@ extends Module {
                     return;
                 }
                 this.delayTimer.reset();
-                if (BlockUtil.canPlace(pos, this.range.getValue(), this.breakCrystal.getValue())) {
+                if (BlockUtil.canPlace(pos, this.effRange(), this.breakCrystal.getValue())) {
                     this.placeBlock(pos, this.rotate.getValue(), anchor);
                 }
                 if (!this.chargeList.contains(pos)) {
@@ -337,7 +345,7 @@ extends Module {
                         CombatUtil.modifyPos = null;
                     }
                 }
-            } else if (BlockUtil.canPlace(pos, this.range.getValue(), this.breakCrystal.getValue())) {
+            } else if (BlockUtil.canPlace(pos, this.effRange(), this.breakCrystal.getValue())) {
                 if (!this.delayTimer.passed((long)this.placeDelay.getValueFloat())) {
                     return;
                 }
@@ -380,6 +388,72 @@ extends Module {
             if (!this.inventorySwap.getValue()) {
                 this.doSwap(old);
             }
+            });
+        }
+    }
+
+    private boolean tpOn() {
+        return this.tpAssist.getValue() && AutoAnchor.mc.player != null && AutoAnchor.mc.world != null;
+    }
+
+    private double effRange() {
+        return this.tpOn() ? Math.max(this.range.getValue(), this.tpRange.getValue()) : this.range.getValue();
+    }
+
+    private double effTargetRange() {
+        return this.tpOn() ? Math.max(this.targetRange.getValue(), this.tpRange.getValue()) : this.targetRange.getValue();
+    }
+
+    private Vec3d findTpVec(Vec3d target, double reach) {
+        Vec3d from = AutoAnchor.mc.player.getPos();
+        double dx = from.x - target.x;
+        double dz = from.z - target.z;
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        if (horiz < 1.0E-3) {
+            return null;
+        }
+        double d = Math.max(1.0, Math.min(reach - 1.5, horiz - 1.0));
+        double nx = dx / horiz;
+        double nz = dz / horiz;
+        for (double yOff : new double[]{0.0, -1.0, 1.0, -2.0, 2.0}) {
+            Vec3d cand = new Vec3d(target.x + nx * d, Math.floor(target.y) + yOff, target.z + nz * d);
+            if (cand.distanceTo(from) <= this.tpRange.getValue() && TpUtil.isBlinkVec(cand)) {
+                return cand;
+            }
+        }
+        return null;
+    }
+
+    private void runWithTp(Vec3d target, double reach, Runnable action) {
+        if (this.tpActive || !this.tpOn()) {
+            action.run();
+            return;
+        }
+        if (reach <= 0.0) {
+            return;
+        }
+        double dist = AutoAnchor.mc.player.getEyePos().distanceTo(target);
+        if (dist <= reach) {
+            action.run();
+            return;
+        }
+        if (dist > this.tpRange.getValue()) {
+            return;
+        }
+        Vec3d tpVec = this.findTpVec(target, reach);
+        if (tpVec == null) {
+            return;
+        }
+        this.tpActive = true;
+        try {
+            if (this.tpBack.getValue()) {
+                TPUtils.teleportWithBack(tpVec, this.tpMode.getValue(), action);
+            } else {
+                TPUtils.newTeleport(tpVec);
+                action.run();
+            }
+        } finally {
+            this.tpActive = false;
         }
     }
 
@@ -395,7 +469,7 @@ extends Module {
             double placeDamage = this.minDamage.getValue();
             double breakDamage = this.breakMin.getValue();
             boolean anchorFound = false;
-            List<PlayerEntity> enemies = CombatUtil.getEnemies(this.targetRange.getValue());
+            List<PlayerEntity> enemies = CombatUtil.getEnemies(this.effTargetRange());
             ArrayList<PlayerEntityPredict> list = new ArrayList<PlayerEntityPredict>();
             for (PlayerEntity player : enemies) {
                 list.add(new PlayerEntityPredict(player, this.maxMotionY.getValue(), this.predictTicks.getValueInt(), this.simulation.getValueInt(), this.step.getValue(), this.doubleStep.getValue(), this.jump.getValue(), this.inBlockPause.getValue()));
@@ -403,7 +477,7 @@ extends Module {
             for (PlayerEntityPredict pap : list) {
                 double selfDamage;
                 BlockPos pos = EntityUtil.getEntityPos((Entity)pap.player, true).up(2);
-                if (!BlockUtil.canPlace(pos, this.range.getValue(), this.breakCrystal.getValue()) && (BlockUtil.getBlock(pos) != Blocks.RESPAWN_ANCHOR || BlockUtil.getClickSideStrict(pos) == null) || (selfDamage = this.getAnchorDamage(pos, selfPredict.player, selfPredict.predict)) > this.maxSelfDamage.getValue() || this.noSuicide.getValue() && selfDamage > (double)(AutoAnchor.mc.player.getHealth() + AutoAnchor.mc.player.getAbsorptionAmount())) continue;
+                if (!BlockUtil.canPlace(pos, this.effRange(), this.breakCrystal.getValue()) && (BlockUtil.getBlock(pos) != Blocks.RESPAWN_ANCHOR || BlockUtil.getClickSideStrict(pos) == null) || (selfDamage = this.getAnchorDamage(pos, selfPredict.player, selfPredict.predict)) > this.maxSelfDamage.getValue() || this.noSuicide.getValue() && selfDamage > (double)(AutoAnchor.mc.player.getHealth() + AutoAnchor.mc.player.getAbsorptionAmount())) continue;
                 damage = this.getAnchorDamage(pos, pap.player, pap.predict);
                 if (!(damage > (double)this.headDamage.getValueFloat()) || this.smart.getValue() && selfDamage > damage) continue;
                 this.lastDamage = damage;
@@ -412,7 +486,7 @@ extends Module {
                 break;
             }
             if (this.tempPos == null) {
-                for (BlockPos pos : BlockUtil.getSphere(this.range.getValueFloat() + 1.0f, AutoAnchor.mc.player.getEyePos())) {
+                for (BlockPos pos : BlockUtil.getSphere((float)this.effRange() + 1.0f, AutoAnchor.mc.player.getEyePos())) {
                     for (PlayerEntityPredict pap : list) {
                         double selfDamage;
                         boolean skip;
@@ -425,7 +499,7 @@ extends Module {
                         }
                         if (BlockUtil.getBlock(pos) != Blocks.RESPAWN_ANCHOR) {
                             double selfDamage2;
-                            if (anchorFound || !BlockUtil.canPlace(pos, this.range.getValue(), this.breakCrystal.getValue())) continue;
+                            if (anchorFound || !BlockUtil.canPlace(pos, this.effRange(), this.breakCrystal.getValue())) continue;
                             CombatUtil.modifyPos = pos;
                             CombatUtil.modifyBlockState = Blocks.OBSIDIAN.getDefaultState();
                             skip = BlockUtil.getClickSideStrict(pos) == null;
@@ -617,6 +691,7 @@ extends Module {
 
     public static enum Page {
         General,
+        Tp,
         Interact,
         Predict,
         Rotate,

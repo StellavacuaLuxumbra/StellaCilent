@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "stella",
-  "version": "3.0.0",
+  "version": "${version}",
   "name": "Stella Client",
   "description": "Stella Client - SunCat improved fork (Lua runtime + C++ brain IPC)",
   "authors": [
