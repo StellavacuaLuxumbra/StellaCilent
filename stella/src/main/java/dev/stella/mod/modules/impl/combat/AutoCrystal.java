@@ -45,6 +45,8 @@ import dev.stella.api.utils.math.Easing;
 import dev.stella.api.utils.math.ExplosionUtil;
 import dev.stella.api.utils.math.MathUtil;
 import dev.stella.api.utils.math.Timer;
+import dev.stella.api.utils.path.TPUtils;
+import dev.stella.api.utils.path.TpUtil;
 import dev.stella.api.utils.player.EntityUtil;
 import dev.stella.api.utils.player.InventoryUtil;
 import dev.stella.api.utils.render.ColorUtil;
@@ -141,6 +143,10 @@ extends Module {
     private final BooleanSetting interactOnRender = this.add(new BooleanSetting("InteractOnRender", false, () -> this.page.getValue() == Page.General));
     private final SliderSetting wallRange = this.add(new SliderSetting("WallRange", 6.0, 0.0, 6.0, () -> this.page.getValue() == Page.General).setSuffix("m"));
     private final EnumSetting<SwingSide> swingMode = this.add(new EnumSetting<SwingSide>("Swing", SwingSide.All, () -> this.page.getValue() == Page.General));
+    private final BooleanSetting tpAssist = this.add(new BooleanSetting("TpAssist", false, () -> this.page.getValue() == Page.Tp));
+    private final SliderSetting tpRange = this.add(new SliderSetting("TpRange", 16.0, 4.0, 64.0, 0.5, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()).setSuffix("m"));
+    private final BooleanSetting tpBack = this.add(new BooleanSetting("TpBack", true, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
+    private final EnumSetting<TPUtils.TeleportType> tpMode = this.add(new EnumSetting<TPUtils.TeleportType>("TpMode", TPUtils.TeleportType.New, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
     private final ColorSetting text = this.add(new ColorSetting("Text", new Color(-1), () -> this.page.getValue() == Page.Render).injectBoolean(true));
     private final EnumSetting<TargetESP> mode = this.add(new EnumSetting<TargetESP>("TargetESP", TargetESP.Fill, () -> this.page.getValue() == Page.Render));
     private final SliderSetting animationTime = this.add(new SliderSetting("AnimationTime", 200.0, 0.0, 2000.0, 1.0, () -> this.page.getValue() == Page.Render));
@@ -213,6 +219,7 @@ extends Module {
     private Vec3d placeVec3d;
     private Vec3d curVec3d;
     int lastSlot;
+    private boolean tpActive;
     BlockPos tempBasePos;
     BlockPos basePos;
 
@@ -321,6 +328,79 @@ extends Module {
         }
     }
 
+    private boolean tpOn() {
+        return this.tpAssist.getValue() && AutoCrystal.mc.player != null && AutoCrystal.mc.world != null;
+    }
+
+    private double effBreakRange() {
+        return this.tpOn() ? Math.max(this.breakRange.getValue(), this.tpRange.getValue()) : this.breakRange.getValue();
+    }
+
+    private double effPlaceRange() {
+        return this.tpOn() ? Math.max(this.placeRange.getValue(), this.tpRange.getValue()) : this.placeRange.getValue();
+    }
+
+    private double effTargetRange() {
+        return this.tpOn() ? Math.max(this.targetRange.getValue(), this.tpRange.getValue()) : this.targetRange.getValue();
+    }
+
+    private float scanRange() {
+        return (float)(this.tpOn() ? Math.max(this.effBreakRange(), this.effPlaceRange()) : (double)this.breakRange.getValue()) + 1.5f;
+    }
+
+    private Vec3d findTpVec(Vec3d target, double reach) {
+        Vec3d from = AutoCrystal.mc.player.getPos();
+        double dx = from.x - target.x;
+        double dz = from.z - target.z;
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        if (horiz < 1.0E-3) {
+            return null;
+        }
+        double d = Math.max(1.0, Math.min(reach - 1.5, horiz - 1.0));
+        double nx = dx / horiz;
+        double nz = dz / horiz;
+        for (double yOff : new double[]{0.0, -1.0, 1.0, -2.0, 2.0}) {
+            Vec3d cand = new Vec3d(target.x + nx * d, Math.floor(target.y) + yOff, target.z + nz * d);
+            if (cand.distanceTo(from) <= this.tpRange.getValue() && TpUtil.isBlinkVec(cand)) {
+                return cand;
+            }
+        }
+        return null;
+    }
+
+    private void runWithTp(Vec3d target, double reach, Runnable action) {
+        if (this.tpActive || !this.tpOn()) {
+            action.run();
+            return;
+        }
+        if (reach <= 0.0) {
+            return;
+        }
+        double dist = AutoCrystal.mc.player.getEyePos().distanceTo(target);
+        if (dist <= reach) {
+            action.run();
+            return;
+        }
+        if (dist > this.tpRange.getValue()) {
+            return;
+        }
+        Vec3d tpVec = this.findTpVec(target, reach);
+        if (tpVec == null) {
+            return;
+        }
+        this.tpActive = true;
+        try {
+            if (this.tpBack.getValue()) {
+                TPUtils.teleportWithBack(tpVec, this.tpMode.getValue(), action);
+            } else {
+                TPUtils.newTeleport(tpVec);
+                action.run();
+            }
+        } finally {
+            this.tpActive = false;
+        }
+    }
+
     private void doInteract() {
         BlockPos crystalPos = this.crystalPos;
         if (crystalPos != null) {
@@ -353,7 +433,7 @@ extends Module {
     }
 
     public Vec3d getAttackVec(Vec3d feetPos) {
-        return MathUtil.getPointToBoxFromBottom(AutoCrystal.mc.player.getEyePos(), feetPos, this.breakRange.getValue(), 2.0, this.attackVecStep.getValue());
+        return MathUtil.getPointToBoxFromBottom(AutoCrystal.mc.player.getEyePos(), feetPos, this.effBreakRange(), 2.0, this.attackVecStep.getValue());
     }
 
     private void updateCrystalPos() {
@@ -404,7 +484,7 @@ extends Module {
         this.tempBasePos = null;
         float baseDamage = 0.0f;
         ArrayList<PlayerEntityPredict> list = new ArrayList<PlayerEntityPredict>();
-        for (PlayerEntity target : CombatUtil.getEnemies(this.targetRange.getValueFloat())) {
+        for (PlayerEntity target : CombatUtil.getEnemies((float)this.effTargetRange())) {
             if (target.hurtTime > this.hurtTime.getValueInt()) continue;
             list.add(new PlayerEntityPredict(target, this.maxMotionY.getValue(), this.predictTicks.getValueInt(), this.simulation.getValueInt(), this.step.getValue(), this.doubleStep.getValue(), this.jump.getValue(), this.inBlockPause.getValue()));
         }
@@ -432,7 +512,7 @@ extends Module {
                 this.doBreak(this.tempBreakCrystal);
                 this.tempBreakCrystal = null;
             }
-            for (BlockPos pos : BlockUtil.getSphere((float)this.breakRange.getValue() + 1.5f)) {
+            for (BlockPos pos : BlockUtil.getSphere(this.scanRange())) {
                 boolean base = false;
                 CombatUtil.modifyPos = null;
                 CombatUtil.modifyBlockState = null;
@@ -537,7 +617,7 @@ extends Module {
         Direction side = BlockUtil.getClickSideStrict(pos);
         if (side == null) return false;
         Vec3d vec3d = new Vec3d((double)side.getVector().getX() * 0.5, (double)side.getVector().getY() * 0.5, (double)side.getVector().getZ() * 0.5);
-        if (!(pos.toCenterPos().add(vec3d).distanceTo(AutoCrystal.mc.player.getEyePos()) <= this.placeRange.getValue())) return false;
+        if (!(pos.toCenterPos().add(vec3d).distanceTo(AutoCrystal.mc.player.getEyePos()) <= this.effPlaceRange())) return false;
         return true;
     }
 
@@ -630,7 +710,6 @@ extends Module {
     }
 
     private void doBreak(EndCrystalEntity entity) {
-        BlockPos crystalPos;
         Vec3d attackVec;
         this.noPosTimer.reset();
         if (!this.breakSetting.getValue()) {
@@ -668,27 +747,30 @@ extends Module {
             }
             return;
         }
-        this.animation.to = 1.0;
-        this.animation.from = 1.0;
-        CombatUtil.breakTimer.reset();
-        this.syncPos = entity.getBlockPos();
-        mc.getNetworkHandler().sendPacket(PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)AutoCrystal.mc.player.isSneaking()));
-        if (this.resetCD.getValue()) {
-            AutoCrystal.mc.player.resetLastAttackedTicks();
-        }
-        EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
-        if (this.breakRemove.getValue()) {
-            AutoCrystal.mc.world.removeEntity(entity.getId(), Entity.RemovalReason.KILLED);
-        }
-        if ((crystalPos = this.crystalPos) != null && this.displayTarget != null && (double)this.lastDamage >= this.getDamage(this.displayTarget) && this.afterBreak.getValue() && (!this.rotate.getValue() || !this.shouldYawStep() || !this.checkFov.getValue() || stella.ROTATION.inFov(entity.getPos(), this.fov.getValueFloat()))) {
-            this.doPlace(crystalPos, false);
-        }
-        if (this.forceWeb.getValue() && AutoWeb.INSTANCE.isOn()) {
-            AutoWeb.force = true;
-        }
-        if (this.rotate.getValue() && !this.shouldYawStep()) {
-            stella.ROTATION.snapBack();
-        }
+        this.runWithTp(entity.getPos(), Math.min(this.breakRange.getValue(), 4.0), () -> {
+            this.animation.to = 1.0;
+            this.animation.from = 1.0;
+            CombatUtil.breakTimer.reset();
+            this.syncPos = entity.getBlockPos();
+            mc.getNetworkHandler().sendPacket(PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)AutoCrystal.mc.player.isSneaking()));
+            if (this.resetCD.getValue()) {
+                AutoCrystal.mc.player.resetLastAttackedTicks();
+            }
+            EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
+            if (this.breakRemove.getValue()) {
+                AutoCrystal.mc.world.removeEntity(entity.getId(), Entity.RemovalReason.KILLED);
+            }
+            BlockPos crystalPos = this.crystalPos;
+            if (crystalPos != null && this.displayTarget != null && (double)this.lastDamage >= this.getDamage(this.displayTarget) && this.afterBreak.getValue() && (!this.rotate.getValue() || !this.shouldYawStep() || !this.checkFov.getValue() || stella.ROTATION.inFov(entity.getPos(), this.fov.getValueFloat()))) {
+                this.doPlace(crystalPos, false);
+            }
+            if (this.forceWeb.getValue() && AutoWeb.INSTANCE.isOn()) {
+                AutoWeb.force = true;
+            }
+            if (this.rotate.getValue() && !this.shouldYawStep()) {
+                stella.ROTATION.snapBack();
+            }
+        });
     }
 
     private void doBreak(BlockPos pos) {
@@ -705,7 +787,6 @@ extends Module {
         }
         this.syncTimer.reset();
         for (EndCrystalEntity entity : BlockUtil.getEndCrystals(new Box((double)pos.getX(), (double)pos.getY(), (double)pos.getZ(), (double)(pos.getX() + 1), (double)(pos.getY() + 2), (double)(pos.getZ() + 1)))) {
-            BlockPos crystalPos;
             Vec3d attackVec;
             if (entity.age < this.minAge.getValueInt() || !entity.isAlive()) continue;
             if (!this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
@@ -726,27 +807,30 @@ extends Module {
                 }
                 return;
             }
-            this.animation.to = 1.0;
-            this.animation.from = 1.0;
-            CombatUtil.breakTimer.reset();
-            this.syncPos = pos;
-            mc.getNetworkHandler().sendPacket(PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)AutoCrystal.mc.player.isSneaking()));
-            if (this.resetCD.getValue()) {
-                AutoCrystal.mc.player.resetLastAttackedTicks();
-            }
-            EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
-            if (this.breakRemove.getValue()) {
-                AutoCrystal.mc.world.removeEntity(entity.getId(), Entity.RemovalReason.KILLED);
-            }
-            if ((crystalPos = this.crystalPos) != null && this.displayTarget != null && (double)this.lastDamage >= this.getDamage(this.displayTarget) && this.afterBreak.getValue() && (!this.rotate.getValue() || !this.shouldYawStep() || !this.checkFov.getValue() || stella.ROTATION.inFov(entity.getPos(), this.fov.getValueFloat()))) {
-                this.doPlace(crystalPos, false);
-            }
-            if (this.forceWeb.getValue() && AutoWeb.INSTANCE.isOn()) {
-                AutoWeb.force = true;
-            }
-            if (this.rotate.getValue() && !this.shouldYawStep()) {
-                stella.ROTATION.snapBack();
-            }
+            this.runWithTp(entity.getPos(), Math.min(this.breakRange.getValue(), 4.0), () -> {
+                this.animation.to = 1.0;
+                this.animation.from = 1.0;
+                CombatUtil.breakTimer.reset();
+                this.syncPos = pos;
+                mc.getNetworkHandler().sendPacket(PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)AutoCrystal.mc.player.isSneaking()));
+                if (this.resetCD.getValue()) {
+                    AutoCrystal.mc.player.resetLastAttackedTicks();
+                }
+                EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
+                if (this.breakRemove.getValue()) {
+                    AutoCrystal.mc.world.removeEntity(entity.getId(), Entity.RemovalReason.KILLED);
+                }
+                BlockPos crystalPos = this.crystalPos;
+                if (crystalPos != null && this.displayTarget != null && (double)this.lastDamage >= this.getDamage(this.displayTarget) && this.afterBreak.getValue() && (!this.rotate.getValue() || !this.shouldYawStep() || !this.checkFov.getValue() || stella.ROTATION.inFov(entity.getPos(), this.fov.getValueFloat()))) {
+                    this.doPlace(crystalPos, false);
+                }
+                if (this.forceWeb.getValue() && AutoWeb.INSTANCE.isOn()) {
+                    AutoWeb.force = true;
+                }
+                if (this.rotate.getValue() && !this.shouldYawStep()) {
+                    stella.ROTATION.snapBack();
+                }
+            });
             return;
         }
         if (this.forcePlace.getValue() && this.crystalPos != null) {
@@ -780,27 +864,29 @@ extends Module {
         if (!this.placeTimer.passed((long)this.placeDelay.getValue())) {
             return;
         }
-        if (AutoCrystal.mc.player.getMainHandStack().getItem().equals(Items.END_CRYSTAL) || AutoCrystal.mc.player.getOffHandStack().getItem().equals(Items.END_CRYSTAL)) {
-            this.placeTimer.reset();
-            this.syncPos = pos;
-            this.placeCrystal(pos);
-        } else {
-            this.placeTimer.reset();
-            this.syncPos = pos;
-            int old = AutoCrystal.mc.player.getInventory().selectedSlot;
-            int crystal = this.getCrystal();
-            if (crystal == -1) {
-                return;
-            }
-            this.doSwap(crystal);
-            this.placeCrystal(pos);
-            if (this.autoSwap.getValue() == SwapMode.Silent) {
-                this.doSwap(old);
-            } else if (this.autoSwap.getValue() == SwapMode.Inventory) {
+        this.runWithTp(pos.down().toCenterPos(), Math.min(this.placeRange.getValue(), 4.5), () -> {
+            if (AutoCrystal.mc.player.getMainHandStack().getItem().equals(Items.END_CRYSTAL) || AutoCrystal.mc.player.getOffHandStack().getItem().equals(Items.END_CRYSTAL)) {
+                this.placeTimer.reset();
+                this.syncPos = pos;
+                this.placeCrystal(pos);
+            } else {
+                this.placeTimer.reset();
+                this.syncPos = pos;
+                int old = AutoCrystal.mc.player.getInventory().selectedSlot;
+                int crystal = this.getCrystal();
+                if (crystal == -1) {
+                    return;
+                }
                 this.doSwap(crystal);
-                EntityUtil.syncInventory();
+                this.placeCrystal(pos);
+                if (this.autoSwap.getValue() == SwapMode.Silent) {
+                    this.doSwap(old);
+                } else if (this.autoSwap.getValue() == SwapMode.Inventory) {
+                    this.doSwap(crystal);
+                    EntityUtil.syncInventory();
+                }
             }
-        }
+        });
         if (rotate && !this.shouldYawStep()) {
             stella.ROTATION.snapBack();
         }
@@ -863,6 +949,7 @@ extends Module {
 
     private static enum Page {
         General,
+        Tp,
         Base,
         Misc,
         Rotation,

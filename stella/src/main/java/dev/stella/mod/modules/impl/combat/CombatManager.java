@@ -22,7 +22,7 @@ import java.util.List;
  *  - Mode = Strict：只要更高优先级模块处于启用状态，低优先级完全不运行
  *  - Mode = Off：关闭互斥（SunCat 原始行为，会冲突）
  *
- * Priority 决定三个核心模块的优先顺序；TpCrystalAura/TpAnchorAura 固定为最低。
+ * Priority 决定三个核心模块的优先顺序；TpAnchorAura 固定为最低（TpCrystalAura 已并入 AutoCrystal 的 TpAssist）。
  */
 public class CombatManager extends Module {
     public static CombatManager INSTANCE;
@@ -111,7 +111,7 @@ public class CombatManager extends Module {
             }
         }
         List<Module> order = new ArrayList<>(5);
-        for (Module m : new Module[]{top, second, third, TpCrystalAura.INSTANCE, TpAnchorAura.INSTANCE}) {
+        for (Module m : new Module[]{top, second, third, TpAnchorAura.INSTANCE}) {
             if (m != null && !order.contains(m)) {
                 order.add(m);
             }

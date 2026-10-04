@@ -34,7 +34,13 @@ implements Wrapper {
 
     public static void legacyTeleportWithBack(Vec3d newPos, Runnable runnable) {
         List<Vec3> tpPath = PathUtils.computePath(newPos);
+        if (tpPath.isEmpty()) {
+            return;
+        }
         tpPath.removeFirst();
+        if (tpPath.isEmpty()) {
+            return;
+        }
         tpPath.forEach(vec3 -> TPUtils.mc.player.networkHandler.sendPacket((Packet)new PlayerMoveC2SPacket.PositionAndOnGround(vec3.x(), vec3.y(), vec3.z(), false)));
         runnable.run();
         tpPath = Lists.reverse(tpPath);

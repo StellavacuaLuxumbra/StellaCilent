@@ -37,6 +37,14 @@ cd stella && gradlew.bat build # 产物 stella/build/libs/stella-3.0.0.jar
 - 部署目标：`D:\PCL\.minecraft\versions\StellaCilent\mods`
 - `stella/lib/*.jar`（sodium/satin/malilib/baritone 等）不入库，构建前需存在
 
+### 2026-10-04 战斗增强（TpAssist，最新提交）
+
+- **AutoCrystal 新增 `Page.Tp` 页**：`TpAssist`（默认关）/ `TpRange`（默认 16m，勿超 20 防 vanilla "moved too quickly"）/ `TpBack` / `TpMode`（`New`=定长包瞬移，默认；`Legacy`=A* 路径包）。
+- 机制：开启后目标扫描按 TpRange 放大（`effBreakRange/effPlaceRange/effTargetRange/scanRange`），动作执行前用 `findTpVec`（朝玩家方向、距目标 ≤min(reach,4.5/4.0)-1.5、`TpUtil.isBlinkVec` 碰撞校验）算落点 → `TPUtils.teleportWithBack` 瞬移 → 放置水晶/点爆水晶（内层 `tpActive` 防嵌套）→ 瞬移回原位。服务端距离约束：攻击 ≤4.0、方块交互 ≤4.5。
+- **原 `TpCrystalAura` 已删除**（旧实现从未真正发传送包）：`combat/`、`anticheatfree/` 两份副本移除，`ModuleManager` 取消注册，`CombatManager` 冲突组同步去掉（`TpAnchorAura` 仍保留）。
+- `TPUtils.legacyTeleportWithBack` 增加空路径防崩（原 `removeFirst()` 空列表会抛 `NoSuchElementException`）。
+- 基座（黑曜石）放置仍为常规距离，未接入 TP；如需远距离放基座可后续把 `doPlace(BlockPos)` 也包一层。
+
 ### 待办（P0 → P2）
 
 1. **P0** 游戏内冒烟测试：StellaBridge 自动启用、Lua 脚本 tick、IPC 双向（与 `cilent.exe` 握手）
