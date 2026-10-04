@@ -1,9 +1,8 @@
-﻿package dev.stella.executer.modules;
+package dev.stella.executer.modules;
 
 import dev.stella.executer.gui.Module;
 import dev.stella.executer.gui.ModuleManager;
 import dev.stella.executer.brain.LuaScriptHost;
-import dev.stella.executer.protection.RaspProtection;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
@@ -14,7 +13,12 @@ import net.minecraft.item.*;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.c2s.play.*;
 import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
+import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
 import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.block.BlockState;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.registry.entry.RegistryEntry;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
@@ -27,12 +31,13 @@ import net.minecraft.util.math.Vec3d;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.luaj.vm2.LuaValue;
+import org.luaj.vm2.LuaTable;
 
 public class ModuleTicker {
 
     private static ModuleTicker instance;
     private static boolean luaInitialized = false;
-    private static boolean raspInitialized = false;
 
     public static final CopyOnWriteArrayList<Packet<?>> blinkPackets = new CopyOnWriteArrayList<>();
     private static Vec3d blinkStartPos;
@@ -46,10 +51,6 @@ public class ModuleTicker {
 
     public void tick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
-        if (!raspInitialized) {
-            try { RaspProtection.initialize(); raspInitialized = true; } catch (Exception e) {}
-        }
-        if (RaspProtection.isTampered()) return;
         if (!luaInitialized) {
             try { dev.stella.executer.brain.LuaScriptLoader.loadAll(); luaInitialized = true; } catch (Exception e) {}
         }
@@ -208,7 +209,7 @@ public class ModuleTicker {
         noSlowDelay--;
         if (mc.player.isUsingItem() && !mc.player.isRiding() && !mc.player.isFallFlying()) {
             mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(mc.player.getInventory().selectedSlot));
-            mc.itemUseCooldown = 0;
+            ((dev.stella.executer.mixin.MinecraftClientAccessor) mc).setItemUseCooldown(0);
         }
     }
 
@@ -219,7 +220,7 @@ public class ModuleTicker {
         int blockSlot = findBlockSlot(mc);
         if (blockSlot == -1) return;
         BlockPos placePos = mc.player.getBlockPos().down();
-        if (!mc.world.getBlockState(placePos).getMaterial().isReplaceable()) return;
+        if (!mc.world.getBlockState(placePos).isReplaceable()) return;
         Direction side = getPlaceSide(mc, placePos);
         if (side == null) {
             for (Direction dir : Direction.values()) {
@@ -236,7 +237,7 @@ public class ModuleTicker {
         mc.player.getInventory().selectedSlot = blockSlot;
         mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, blockSlot < 9 ? blockSlot + 36 : blockSlot, 0, SlotActionType.SWAP, mc.player);
         BlockPos neighbor = placePos.offset(side);
-        Vec3d hitVec = Vec3d.ofCenter(placePos).add(side.getUnitVector().mul(-0.5));
+        Vec3d hitVec = Vec3d.ofCenter(placePos).add(new Vec3d(side.getUnitVector().mul(-0.5f)));
         BlockHitResult hit = new BlockHitResult(hitVec, side, neighbor, false);
         mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
         mc.player.swingHand(Hand.MAIN_HAND);
@@ -310,10 +311,11 @@ public class ModuleTicker {
         int prot = armor.getProtection();
         if (stack.hasEnchantments()) {
             var enchants = net.minecraft.enchantment.EnchantmentHelper.getEnchantments(stack);
-            for (var entry : enchants) {
-                String id = entry.getKey().toString();
-                if (id.contains("protection")) prot += entry.getValue() * 2;
-                else if (id.contains("blast_protection")) prot += entry.getValue();
+            for (var entry : enchants.getEnchantmentEntries()) {
+                String id = entry.getKey().getKey().map(k -> k.getValue().toString()).orElse("");
+                int level = entry.getIntValue();
+                if (id.contains("protection")) prot += level * 2;
+                else if (id.contains("blast_protection")) prot += level;
                 else if (id.contains("binding_curse")) return -999;
             }
         }
@@ -535,7 +537,7 @@ public class ModuleTicker {
     private void tickFastUse(MinecraftClient mc, Module m) {
         var multSetting = (dev.stella.executer.gui.setting.SliderSetting) m.getSetting("Multiplier");
         float mult = multSetting != null ? (float) multSetting.getValue() : 2.0f;
-        if (mc.player.isUsingItem()) mc.itemUseCooldown = 0;
+        if (mc.player.isUsingItem()) ((dev.stella.executer.mixin.MinecraftClientAccessor) mc).setItemUseCooldown(0);
     }
     private void tickAutoFish(MinecraftClient mc, Module m) {
         if (!(mc.player.getMainHandStack().getItem() instanceof FishingRodItem)) return;
@@ -580,12 +582,12 @@ public class ModuleTicker {
         for (Direction dir : Direction.values()) {
             if (dir == Direction.UP || dir == Direction.DOWN) continue;
             BlockPos target = headPos.offset(dir);
-            if (mc.world.getBlockState(target).getMaterial().isReplaceable()) {
+            if (mc.world.getBlockState(target).isReplaceable()) {
                 if (mc.player.getMainHandStack().getItem() == Items.OBSIDIAN || mc.player.getOffHandStack().getItem() == Items.OBSIDIAN) {
                     Direction placeDir = getPlaceSide(mc, target);
                     if (placeDir != null) {
                         BlockPos neighbor = target.offset(placeDir);
-                        Vec3d hitVec = Vec3d.ofCenter(target).add(placeDir.getUnitVector().mul(-0.5));
+                        Vec3d hitVec = Vec3d.ofCenter(target).add(new Vec3d(placeDir.getUnitVector().mul(-0.5f)));
                         BlockHitResult hit = new BlockHitResult(hitVec, placeDir, neighbor, false);
                         Hand hand = mc.player.getMainHandStack().getItem() == Items.OBSIDIAN ? Hand.MAIN_HAND : Hand.OFF_HAND;
                         mc.interactionManager.interactBlock(mc.player, hand, hit);
@@ -603,12 +605,12 @@ public class ModuleTicker {
         targets.add(playerPos.north()); targets.add(playerPos.south());
         targets.add(playerPos.east()); targets.add(playerPos.west());
         for (BlockPos target : targets) {
-            if (mc.world.getBlockState(target).getMaterial().isReplaceable()) {
+            if (mc.world.getBlockState(target).isReplaceable()) {
                 if (mc.player.getMainHandStack().getItem() == Items.OBSIDIAN || mc.player.getOffHandStack().getItem() == Items.OBSIDIAN) {
                     Direction placeDir = getPlaceSide(mc, target);
                     if (placeDir != null) {
                         BlockPos neighbor = target.offset(placeDir);
-                        Vec3d hitVec = Vec3d.ofCenter(target).add(placeDir.getUnitVector().mul(-0.5));
+                        Vec3d hitVec = Vec3d.ofCenter(target).add(new Vec3d(placeDir.getUnitVector().mul(-0.5f)));
                         BlockHitResult hit = new BlockHitResult(hitVec, placeDir, neighbor, false);
                         Hand hand = mc.player.getMainHandStack().getItem() == Items.OBSIDIAN ? Hand.MAIN_HAND : Hand.OFF_HAND;
                         mc.interactionManager.interactBlock(mc.player, hand, hit);
@@ -624,6 +626,41 @@ public class ModuleTicker {
             dev.stella.executer.gui.setting.Setting setting = m.getSetting(entry.getKey());
             if (setting instanceof dev.stella.executer.gui.setting.SliderSetting s && entry.getValue() instanceof Number n) s.setValue(n.doubleValue());
             else if (setting instanceof dev.stella.executer.gui.setting.BooleanSetting b && entry.getValue() instanceof Boolean v) b.setValue(v);
+        }
+    }
+
+    public static void updateWorldTableFromPlayer(MinecraftClient mc) {
+        if (mc.player == null || mc.world == null) return;
+        try {
+            var globals = dev.stella.executer.brain.LuaScriptHost.getGlobals();
+            if (globals == null) return;
+            LuaValue worldTable = globals.get("world");
+            if (!worldTable.istable()) return;
+            LuaTable wt = worldTable.checktable();
+            wt.set("x", LuaValue.valueOf(mc.player.getX()));
+            wt.set("y", LuaValue.valueOf(mc.player.getY()));
+            wt.set("z", LuaValue.valueOf(mc.player.getZ()));
+            wt.set("health", LuaValue.valueOf(mc.player.getHealth()));
+            wt.set("armor", LuaValue.valueOf(mc.player.getArmor()));
+            wt.set("onGround", LuaValue.valueOf(mc.player.isOnGround()));
+            wt.set("inWater", LuaValue.valueOf(mc.player.isInsideWaterOrBubbleColumn()));
+            wt.set("yaw", LuaValue.valueOf(mc.player.getYaw()));
+            wt.set("pitch", LuaValue.valueOf(mc.player.getPitch()));
+        } catch (Exception e) {}
+    }
+
+    public static void applyLuaModules(Set<String> enabledModules, Map<String, Map<String, Object>> moduleConfigs) {
+        for (String moduleName : enabledModules) {
+            Module m = ModuleManager.getInstance().getModule(moduleName);
+            if (m != null && !m.isEnabled()) {
+                m.setEnabled(true);
+            }
+        }
+        for (Map.Entry<String, Map<String, Object>> entry : moduleConfigs.entrySet()) {
+            Module m = ModuleManager.getInstance().getModule(entry.getKey());
+            if (m != null) {
+                ModuleTicker.getInstance().applyLuaConfig(m, entry.getValue());
+            }
         }
     }
 }

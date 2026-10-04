@@ -24,66 +24,6 @@ dependencies {
     implementation 'org.luaj:luaj-jse:3.0.1'
 }
 
-// XOR encryption key for Lua scripts
-def xorKey = [0x53, 0x74, 0x65, 0x6C, 0x6C, 0x61, 0x43, 0x6C] as byte[]
-
-// Task to encrypt Lua scripts
-task encryptLua(type: Copy) {
-    from 'src/main/resources/assets/stella/lua'
-    into "${buildDir}/encrypted-lua"
-    doLast {
-        fileTree("${buildDir}/encrypted-lua").matching { include '*.lua' }.each { file ->
-            def content = file.bytes
-            def encrypted = new byte[content.length]
-            for (int i = 0; i < content.length; i++) {
-                encrypted[i] = (byte) (content[i] ^ xorKey[i % xorKey.length])
-            }
-            file.bytes = encrypted
-            file.renameTo(file.path.replace('.lua', '.luenc'))
-        }
-    }
-}
-
-// Task to run crazy-obfuscator CLI
-task obfuscateJar(type: Exec, dependsOn: remapJar) {
-    workingDir projectDir
-    def obfJar = file("${projectDir}/tools/crazy-obfuscator.jar")
-    def inputJar = remapJar.archiveFile.get().asFile
-    def outputJar = file("${buildDir}/libs/StellaCilent-${project.version}-obf.jar")
-    def configFile = file("${projectDir}/obfuscate.json")
-    
-    commandLine = [
-        'java', '-jar', obfJar.absolutePath,
-        '--input', inputJar.absolutePath,
-        '--output', outputJar.absolutePath,
-        '--config', configFile.absolutePath,
-        '--package', 'dev.stella.executer'
-    ]
-    
-    doFirst {
-        if (!obfJar.exists()) {
-            println "[Stella] WARNING: crazy-obfuscator.jar not found at ${obfJar}"
-            println "[Stella] Download from: https://github.com/elv1n200/crazy-obfuscator/releases"
-            println "[Stella] Skipping obfuscation, using remapped jar"
-            copy {
-                from inputJar
-                into outputJar.parentFile
-                rename { outputJar.name }
-            }
-            // Mark task as up-to-date to skip
-            enabled = false
-        }
-    }
-}
-
-// String encryption via ASM (placeholder - integrate with crazy-obfuscator later)
-task encryptStrings {
-    dependsOn classes
-    doLast {
-        println "[Stella] String encryption placeholder - use crazy-obfuscator"
-    }
-}
-
 processResources {
     inputs.property "version", project.version
 
@@ -109,6 +49,6 @@ jar {
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+        configurations.runtimeClasspath.filter { it.name.contains('luaj') }.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }

@@ -11,16 +11,5 @@ public class ClientPlayerEntityMixin {
 
     @Inject(method = "sendMovementPackets", at = @At("HEAD"))
     private void onSendMovementPackets(CallbackInfo ci) {
-        // Fire before movement packets are sent — useful for scaffold, speed, etc.
-    }
-
-    @Inject(method = "tick", at = @At("HEAD"))
-    private void onTick(CallbackInfo ci) {
-        // Player tick — useful for NoFall, AutoTotem, etc.
-    }
-
-    @Inject(method = "tick", at = @At("RETURN"))
-    private void onTickEnd(CallbackInfo ci) {
-        // Post-tick cleanup
     }
 }

@@ -1,0 +1,206 @@
+/*
+ * Decompiled with CFR 0.152.
+ *
+ * Could not load the following classes:
+ *  net.minecraft.client.MinecraftClient
+ *  net.minecraft.entity.Entity
+ *  net.minecraft.entity.Entity$RemovalReason
+ *  net.minecraft.entity.EntityType
+ *  net.minecraft.entity.LivingEntity
+ *  net.minecraft.entity.attribute.AttributeContainer
+ *  net.minecraft.entity.attribute.EntityAttribute
+ *  net.minecraft.entity.attribute.EntityAttributeInstance
+ *  net.minecraft.entity.attribute.EntityAttributeModifier
+ *  net.minecraft.entity.attribute.EntityAttributes
+ *  net.minecraft.entity.effect.StatusEffect
+ *  net.minecraft.entity.effect.StatusEffects
+ *  net.minecraft.registry.entry.RegistryEntry
+ *  net.minecraft.world.World
+ *  org.jetbrains.annotations.Nullable
+ *  org.spongepowered.asm.mixin.Final
+ *  org.spongepowered.asm.mixin.Mixin
+ *  org.spongepowered.asm.mixin.Shadow
+ *  org.spongepowered.asm.mixin.Unique
+ *  org.spongepowered.asm.mixin.injection.At
+ *  org.spongepowered.asm.mixin.injection.Inject
+ *  org.spongepowered.asm.mixin.injection.Redirect
+ *  org.spongepowered.asm.mixin.injection.callback.CallbackInfo
+ *  org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
+ */
+package dev.stella.asm.mixins;
+
+import dev.stella.stella;
+import dev.stella.api.events.impl.LerpToEvent;
+import dev.stella.api.events.impl.SprintEvent;
+import dev.stella.core.impl.RotationManager;
+import dev.stella.mod.modules.impl.client.AntiCheat;
+import dev.stella.mod.modules.impl.movement.EFly;
+import dev.stella.mod.modules.impl.movement.NoSlow;
+import dev.stella.mod.modules.impl.movement.Velocity;
+import dev.stella.mod.modules.impl.player.AntiEffects;
+import dev.stella.mod.modules.impl.render.ViewModel;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.AttributeContainer;
+import net.minecraft.entity.attribute.EntityAttribute;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributeModifier;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(value={LivingEntity.class})
+public abstract class MixinLivingEntity
+extends Entity {
+    @Final
+    @Shadow
+    private static EntityAttributeModifier SPRINTING_SPEED_BOOST;
+    @Unique
+    private boolean previousElytra = false;
+    @Unique
+    private long lastLerp = 0L;
+    @Shadow protected int fallFlyingTicks;
+
+    public MixinLivingEntity(EntityType<?> type, World world) {
+        super(type, world);
+    }
+
+    @Shadow
+    @Nullable
+    public EntityAttributeInstance getAttributeInstance(RegistryEntry<EntityAttribute> attribute) {
+        return this.getAttributes().getCustomInstance(attribute);
+    }
+
+    @Shadow
+    public AttributeContainer getAttributes() {
+        return null;
+    }
+
+    @Shadow
+    public abstract void remove(Entity.RemovalReason var1);
+
+    // Visualize - replace yaw in tick
+    @Redirect(method={"tick"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;getYaw()F"), require=0)
+    public float replaceYaw_tick(LivingEntity instance) {
+        if (AntiCheat.INSTANCE.visualize.getValue() && (Entity)LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player && RotationManager.INSTANCE.getRotation() != null) {
+            return RotationManager.INSTANCE.getRotation().yaw;
+        }
+        return instance.getYaw();
+    }
+
+    // StrafeFix - replace pitch in travel (Sn0w style)
+    @Redirect(method={"travel"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;getPitch()F"), require=0)
+    public float replacePitch(LivingEntity instance) {
+        // Sn0w StrafeFix: 强制使用客户端旋转俯仰角修复移动同步
+        if ((Entity)LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player) {
+            if (AntiCheat.INSTANCE.strafeFix.getValue() && RotationManager.INSTANCE.getRotation() != null) {
+                return RotationManager.INSTANCE.getRotation().pitch;
+            }
+        }
+        return instance.getPitch();
+    }
+
+    // StrafeFix - replace rotation vector in travel (Sn0w style)
+    @Redirect(method={"travel"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;getRotationVector()Lnet/minecraft/util/math/Vec3d;"), require=0)
+    public Vec3d replaceVelocity(LivingEntity instance) {
+        // Sn0w StrafeFix: 强制使用客户端旋转向量修复移动方向
+        if ((Entity)LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player) {
+            if (AntiCheat.INSTANCE.strafeFix.getValue() && RotationManager.INSTANCE.getRotation() != null) {
+                return RotationManager.INSTANCE.getRotationVector();
+            }
+        }
+        return instance.getRotationVector();
+    }
+
+    @Inject(method={"getHandSwingDuration"}, at={@At(value="HEAD")}, cancellable=true)
+    private void getArmSwingAnimationEnd(CallbackInfoReturnable<Integer> info) {
+        if (ViewModel.INSTANCE.isOn() && ViewModel.INSTANCE.slowAnimation.getValue()) {
+            info.setReturnValue(ViewModel.INSTANCE.slowAnimationVal.getValueInt());
+        }
+    }
+
+    @Inject(method={"isFallFlying"}, at={@At(value="TAIL")}, cancellable=true)
+    public void recastOnLand(CallbackInfoReturnable<Boolean> cir) {
+        boolean elytra = (Boolean)cir.getReturnValue();
+        if (this.previousElytra && !elytra && EFly.INSTANCE.isOn() && EFly.INSTANCE.mode.getValue() == EFly.Mode.Grim) {
+            cir.setReturnValue(EFly.recastElytra(MinecraftClient.getInstance().player));
+        }
+        this.previousElytra = elytra;
+    }
+
+    @Redirect(method={"travel"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;hasStatusEffect(Lnet/minecraft/registry/entry/RegistryEntry;)Z"), require=0)
+    private boolean travelEffectHook(LivingEntity instance, RegistryEntry<StatusEffect> effect) {
+        if (AntiEffects.INSTANCE.isOn()) {
+            if (effect == StatusEffects.SLOW_FALLING && AntiEffects.INSTANCE.slowFalling.getValue()) {
+                return false;
+            }
+            if (effect == StatusEffects.LEVITATION && AntiEffects.INSTANCE.levitation.getValue()) {
+                return false;
+            }
+        }
+        return instance.hasStatusEffect(effect);
+    }
+
+    @Redirect(method={"applyMovementInput"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;isClimbing()Z"), require=0)
+    public boolean climbingHook(LivingEntity instance) {
+        if (Velocity.INSTANCE.isOn() && Velocity.INSTANCE.noClimb.getValue() && LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player) {
+            return false;
+        }
+        return instance.isClimbing();
+    }
+    
+
+    @Redirect(method={"applyClimbingSpeed"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;isClimbing()Z"), require=0)
+    public boolean climbingHook2(LivingEntity instance) {
+        if (NoSlow.INSTANCE.climb() && LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player) {
+            return false;
+        }
+        return instance.isClimbing();
+    }
+
+    @Inject(method={"updateTrackedPositionAndAngles"}, at={@At(value="HEAD")})
+    private void lerpToHook(double x, double y, double z, float yRot, float xRot, int steps, CallbackInfo ci) {
+        stella.EVENT_BUS.post(LerpToEvent.get((LivingEntity)LivingEntity.class.cast((Object)this), x, y, z, yRot, xRot, this.lastLerp));
+        this.lastLerp = System.currentTimeMillis();
+    }
+     @Inject(method = "tick", at = @At("TAIL"))
+    private void lockFallFlyingTicksHook(CallbackInfo ci) {
+        if ((Entity)LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player && dev.stella.mod.modules.impl.movement.EFly.isStandingFly()) {
+            this.fallFlyingTicks = 0;
+        }
+    }
+
+    @Inject(method={"setSprinting"}, at={@At(value="HEAD")}, cancellable=true)
+    public void setSprintingHook(boolean sprinting, CallbackInfo ci) {
+        if (LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player) {
+            SprintEvent event = SprintEvent.get();
+            stella.EVENT_BUS.post(event);
+            if (event.isCancelled()) {
+                ci.cancel();
+                sprinting = event.isSprint();
+                super.setSprinting(sprinting);
+                EntityAttributeInstance entityAttributeInstance = this.getAttributeInstance((RegistryEntry<EntityAttribute>)EntityAttributes.GENERIC_MOVEMENT_SPEED);
+                entityAttributeInstance.removeModifier(SPRINTING_SPEED_BOOST.id());
+                if (sprinting) {
+                    entityAttributeInstance.addTemporaryModifier(SPRINTING_SPEED_BOOST);
+                }
+            }
+        }
+    }
+    
+}

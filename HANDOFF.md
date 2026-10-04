@@ -1,6 +1,51 @@
 # Stella Client 开发交接文档
 
-> 最后更新: 2026-08-24
+> 最后更新: 2026-10-04
+
+## 重要：2026-10-04 架构变更（以下第 1-10 章为旧架构，仅作历史参考）
+
+**新架构：`stella/` = SunCat 改进版（主体） + Stella 的 Lua/IPC 特性（嫁接）**
+
+### 变更概要
+
+| 项 | 旧 | 新 |
+|----|----|----|
+| Java 主体 | `executer/`（自研双进程执行器） | `stella/`（SunCat 源码魔改，包 `dev.stella`，mod id `stella`，版本 3.0.0） |
+| 混淆 | protection 包 / obfuscate.json / crazy-obfuscator / Lua XOR / RaspProtection | **全部删除**，Lua 明文加载，构建无加密步骤 |
+| 品牌 | 执行器+ClickGUI | 保留 Stella 名称；`suncat*` → `stella*`（类/包/资源/accesswidener/mixins 全部重命名） |
+| Lua/IPC 特性 | `executer/` 内 LuaScriptHost + IpcHost | 嫁接进 `stella/`：`dev.stella.brain.*` + `dev.stella.ipc.*`，由模块 `StellaBridge` 承载（默认开启） |
+| git 体积 | build 产物、jar/exe 入库 | `.gitignore` 重写 + `git rm --cached`（跟踪文件 226→179，最大 57KB） |
+
+### 关键路径（新）
+
+- `stella/src/main/java/dev/stella/stella.java` — 主类（原 SunCat 主类，ModInitializer）
+- `stella/src/main/java/dev/stella/mod/modules/impl/client/StellaBridge.java` — Lua + IPC 桥模块（onTick 推送 EV_WORLD_SNAPSHOT/EV_TICK、接收指令序列）
+- `stella/src/main/java/dev/stella/brain/` — LuaScriptHost / LuaScriptLoader / InstructionEncoder / SnapshotParser
+- `stella/src/main/java/dev/stella/ipc/` — Protocol / IpcHost / InstructionDecoder / WorldSnapshot（共享内存 `stella_ipc.bin`）
+- `stella/src/main/resources/assets/stella/lua/` — 7 个明文 Lua 脚本
+- `stella/src/main/resources/fabric.mod.json`、`stella.accesswidener`、`stella.mixins.json`
+
+### 构建（已验证 BUILD SUCCESSFUL, 2026-10-04）
+
+```
+build.bat                      # 等价于 cd stella && gradlew.bat build 并部署
+cd stella && gradlew.bat build # 产物 stella/build/libs/stella-3.0.0.jar
+```
+
+- 必须用 **Gradle 8.11 wrapper**（fabric-loom 1.9.2 要求 ≥8.11；系统 Gradle 8.10.2 不可用）
+- `JAVA_HOME=C:\Program Files\Zulu\zulu-21`
+- 部署目标：`D:\PCL\.minecraft\versions\StellaCilent\mods`
+- `stella/lib/*.jar`（sodium/satin/malilib/baritone 等）不入库，构建前需存在
+
+### 待办（P0 → P2）
+
+1. **P0** 游戏内冒烟测试：StellaBridge 自动启用、Lua 脚本 tick、IPC 双向（与 `cilent.exe` 握手）
+2. **P0** C++ 端 (`cilent/src/main.cpp`) 与新 `Protocol`/opcode 对齐验证
+3. **P1** 决定旧 `executer/` 去留（Lua/IPC 已迁走，其 mixin/accessor 仍被引用需甄别后删除）
+4. **P1** `git add` 新文件（`stella/`、`.gitignore` 等）并提交
+5. **P2** 清理本文档旧章节与 `IMPLEMENTATION_PLAN.md` 中已失效的 executer 方案
+
+> 以下第 1-10 章内容描述的是**已废弃的双进程 executer 架构**，仅供查阅历史设计（IPC 协议表、MC API 修改记录仍有效）。
 
 ## 一、项目概述
 

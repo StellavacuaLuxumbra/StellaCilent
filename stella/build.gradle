@@ -1,0 +1,98 @@
+plugins {
+    id 'fabric-loom' version '1.9.2'
+    id 'maven-publish'
+}
+
+archivesBaseName = project.archives_base_name
+version = project.mod_version
+group = project.maven_group
+
+sourceSets {
+    main {
+        java {
+            // No exclusions
+        }
+    }
+}
+
+loom {
+    accessWidenerPath = file("src/main/resources/stella.accesswidener")
+
+    mixin {
+        useLegacyMixinAp = true
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'Ladysnake Mods'
+        url = 'https://maven.ladysnake.org/releases'
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation files('lib/baritone-api-fabric-1.21.1-1.11.2.jar')
+    modImplementation files('lib/sodium-fabric-0.6.13+mc1.21.1.jar')
+    modImplementation files('lib/malilib-fabric-1.21-0.21.6.jar')
+    modImplementation('org.ladysnake:satin:2.0.0') {
+        exclude group: 'org.lwjgl'
+    }
+    include('org.ladysnake:satin:2.0.0') {
+        exclude group: 'org.lwjgl'
+    }
+    implementation 'org.apiguardian:apiguardian-api:1.1.2'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okio:okio:3.6.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    include 'com.squareup.okhttp3:okhttp:4.12.0'
+    include 'com.squareup.okio:okio:3.6.0'
+    include 'com.google.code.gson:gson:2.10.1'
+
+    // Stella 特性: Lua 脚本运行时 (LuaJ)
+    implementation 'org.luaj:luaj-jse:3.0.1'
+}
+
+// Satin is now included via modImplementation
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand([version: project.version])
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+    it.options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xmaxerrs" << "2048"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+// Bundle LuaJ into the mod jar (Stella Lua runtime)
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.filter { it.name.contains('luaj') }.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+
+    repositories {
+    }
+}

@@ -1,7 +1,26 @@
 # Stella Client 优化实施计划
 
 > 目标：对标 SunCat-Client，实现完整的 ClickGUI、模块系统、HUD、渲染、配置
-> 最后更新：2026-08-24
+> 最后更新：2026-10-04
+
+---
+
+## 状态变更（2026-10-04）：目标改为直接采纳 SunCat 源码
+
+本计划原定"自行实现以对标 SunCat"的各阶段**已停止执行**，改为：
+
+1. 将 `othercilent/SunCat-Client` 源码整体复制为 `stella/` 并品牌化重命名
+   （`dev.suncat`→`dev.stella`、`suncat*`→`stella*`、资源合并到 `assets/stella/`）。
+2. 把 Stella 原有特性（LuaJ 脚本运行时、共享内存 IPC）嫁接进 `stella/`，
+   入口为模块 `StellaBridge`（默认开启）。
+3. 删除全部混淆设施（protection / obfuscate.json / crazy-obfuscator /
+   build.gradle 加密任务 / Lua XOR / RaspProtection），Lua 脚本改为明文加载。
+4. 构建改用 `cd stella && gradlew.bat build`（Gradle 8.11 + fabric-loom 1.9.2），
+   产物 `stella-3.0.0.jar`，已于 2026-10-04 编译通过。
+
+因此下文阶段 1-8（自研渲染/模块/HUD/Mixin/配置）**不再适用**，仅在需要参考
+实现细节、或为 `executer/` 做对照时查阅。新的待办见 `HANDOFF.md` 顶部
+"2026-10-04 架构变更"一节。
 
 ---
 
