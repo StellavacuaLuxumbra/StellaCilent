@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.stella.executer.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ClientConnectionMixin",
+    "ClientPlayerEntityMixin",
+    "MinecraftClientAccessor",
+    "MinecraftClientMixin",
+    "GameRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

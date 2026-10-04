@@ -1,0 +1,44 @@
+{
+  "mappings": {
+    "dev/stella/executer/mixin/ClientConnectionMixin": {
+      "channelRead0": "Lnet/minecraft/class_2535;method_10770(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/class_2596;)V",
+      "send(Lnet/minecraft/network/packet/Packet;)V": "Lnet/minecraft/class_2535;method_10743(Lnet/minecraft/class_2596;)V"
+    },
+    "dev/stella/executer/mixin/ClientPlayerEntityMixin": {
+      "sendMovementPackets": "Lnet/minecraft/class_746;method_3136()V"
+    },
+    "dev/stella/executer/mixin/GameRendererMixin": {
+      "renderWorld": "Lnet/minecraft/class_757;method_3188(Lnet/minecraft/class_9779;)V"
+    },
+    "dev/stella/executer/mixin/MinecraftClientAccessor": {
+      "itemUseCooldown": "field_1752:I"
+    },
+    "dev/stella/executer/mixin/MinecraftClientMixin": {
+      "disconnect": "Lnet/minecraft/class_310;method_18099()V",
+      "run": "Lnet/minecraft/class_310;method_1514()V",
+      "setScreen": "Lnet/minecraft/class_310;method_1507(Lnet/minecraft/class_437;)V"
+    }
+  },
+  "data": {
+    "named:intermediary": {
+      "dev/stella/executer/mixin/ClientConnectionMixin": {
+        "channelRead0": "Lnet/minecraft/class_2535;method_10770(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/class_2596;)V",
+        "send(Lnet/minecraft/network/packet/Packet;)V": "Lnet/minecraft/class_2535;method_10743(Lnet/minecraft/class_2596;)V"
+      },
+      "dev/stella/executer/mixin/ClientPlayerEntityMixin": {
+        "sendMovementPackets": "Lnet/minecraft/class_746;method_3136()V"
+      },
+      "dev/stella/executer/mixin/GameRendererMixin": {
+        "renderWorld": "Lnet/minecraft/class_757;method_3188(Lnet/minecraft/class_9779;)V"
+      },
+      "dev/stella/executer/mixin/MinecraftClientAccessor": {
+        "itemUseCooldown": "field_1752:I"
+      },
+      "dev/stella/executer/mixin/MinecraftClientMixin": {
+        "disconnect": "Lnet/minecraft/class_310;method_18099()V",
+        "run": "Lnet/minecraft/class_310;method_1514()V",
+        "setScreen": "Lnet/minecraft/class_310;method_1507(Lnet/minecraft/class_437;)V"
+      }
+    }
+  }
+}
