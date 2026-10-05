@@ -37,6 +37,7 @@ import dev.stella.api.events.impl.PacketEvent;
 import dev.stella.api.events.impl.Render3DEvent;
 import dev.stella.api.events.impl.RotationEvent;
 import dev.stella.api.utils.combat.CombatUtil;
+import dev.stella.api.utils.entity.CopyPlayerEntity;
 import dev.stella.api.utils.entity.PlayerEntityPredict;
 import dev.stella.api.utils.math.AnimateUtil;
 import dev.stella.api.utils.math.Animation;
@@ -71,6 +72,8 @@ import dev.stella.mod.modules.settings.impl.SliderSetting;
 import java.awt.Color;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
@@ -147,6 +150,10 @@ extends Module {
     private final SliderSetting tpRange = this.add(new SliderSetting("TpRange", 16.0, 4.0, 64.0, 0.5, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()).setSuffix("m"));
     private final BooleanSetting tpBack = this.add(new BooleanSetting("TpBack", true, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
     private final EnumSetting<TPUtils.TeleportType> tpMode = this.add(new EnumSetting<TPUtils.TeleportType>("TpMode", TPUtils.TeleportType.New, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
+    private final BooleanSetting rush = this.add(new BooleanSetting("Rush", true, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
+    private final SliderSetting rushTime = this.add(new SliderSetting("RushTime", 500, 0, 5000, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue() && this.rush.getValue()).setSuffix("ms"));
+    private final BooleanSetting tpCombo = this.add(new BooleanSetting("Combo", true, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
+    private final SliderSetting tpInterval = this.add(new SliderSetting("TpInterval", 0, 0, 500, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()).setSuffix("ms"));
     private final ColorSetting text = this.add(new ColorSetting("Text", new Color(-1), () -> this.page.getValue() == Page.Render).injectBoolean(true));
     private final EnumSetting<TargetESP> mode = this.add(new EnumSetting<TargetESP>("TargetESP", TargetESP.Fill, () -> this.page.getValue() == Page.Render));
     private final SliderSetting animationTime = this.add(new SliderSetting("AnimationTime", 200.0, 0.0, 2000.0, 1.0, () -> this.page.getValue() == Page.Render));
@@ -219,6 +226,11 @@ extends Module {
     private Vec3d placeVec3d;
     private Vec3d curVec3d;
     int lastSlot;
+    private final Timer rushTimer = new Timer();
+    private final Timer tpTimer = new Timer();
+    private boolean rushForce;
+    private Set<Integer> lastSeen = new HashSet<>();
+    private CopyPlayerEntity tpSelf;
     private boolean tpActive;
     BlockPos tempBasePos;
     BlockPos basePos;
@@ -275,6 +287,7 @@ extends Module {
         if (this.timing.is(Timing.Pre) && event.isPost() || this.timing.is(Timing.Post) && event.isPre()) {
             return;
         }
+        this.checkRush();
         if (!CombatManager.allows(this)) {
             this.crystalPos = null;
             this.tempPos = null;
@@ -330,6 +343,37 @@ extends Module {
 
     private boolean tpOn() {
         return this.tpAssist.getValue() && AutoCrystal.mc.player != null && AutoCrystal.mc.world != null;
+    }
+
+    /** Stella：检测敌人新进入 TpRange 打轰炸标记（Rush）。 */
+    private void checkRush() {
+        if (!this.rush.getValue() || !this.tpOn()) {
+            this.lastSeen = new HashSet<>();
+            return;
+        }
+        HashSet<Integer> now = new HashSet<Integer>();
+        for (PlayerEntity target : CombatUtil.getEnemies(this.effTargetRange())) {
+            int id = target.getId();
+            now.add(id);
+            if (!this.lastSeen.contains(id)) {
+                this.rushTimer.reset();
+                this.rushForce = true;
+            }
+        }
+        this.lastSeen = now;
+    }
+
+    private boolean rushActive() {
+        return this.rush.getValue() && this.tpOn() && !this.rushTimer.passedMs((long)this.rushTime.getValue());
+    }
+
+    /** Stella：以 TP 落点为自身位置的伤害预测（TP 期间服务端视角在落点）。 */
+    private PlayerEntityPredict selfAt(Vec3d tpVec) {
+        if (this.tpSelf == null) {
+            this.tpSelf = new CopyPlayerEntity(AutoCrystal.mc.player, true);
+        }
+        this.tpSelf.setPosition(tpVec.x, tpVec.y, tpVec.z);
+        return new PlayerEntityPredict(this.tpSelf, this.tpSelf);
     }
 
     private double effBreakRange() {
@@ -388,6 +432,9 @@ extends Module {
         if (tpVec == null) {
             return;
         }
+        if (this.tpInterval.getValue() > 0.0 && !this.tpTimer.passedMs((long)this.tpInterval.getValue())) {
+            return;
+        }
         this.tpActive = true;
         try {
             if (this.tpBack.getValue()) {
@@ -399,6 +446,7 @@ extends Module {
         } finally {
             this.tpActive = false;
         }
+        this.tpTimer.reset();
     }
 
     private void doInteract() {
@@ -437,8 +485,9 @@ extends Module {
     }
 
     private void updateCrystalPos() {
-        if (this.calcDelay.passedMs(this.updateDelay.getValue())) {
+        if (this.rushForce || this.calcDelay.passedMs(this.updateDelay.getValue())) {
             this.calcDelay.reset();
+            this.rushForce = false;
             this.calcCrystalPos();
             CombatUtil.modifyPos = null;
             CombatUtil.modifyBlockState = null;
@@ -499,7 +548,16 @@ extends Module {
                 if (!(entity instanceof EndCrystalEntity)) continue;
                 EndCrystalEntity crystal = (EndCrystalEntity)entity;
                 if (entity.age < this.minAge.getValueInt() || (attackVec = this.getAttackVec(crystal.getPos())) == null || !AutoCrystal.mc.player.canSee((Entity)crystal) && AutoCrystal.mc.player.getEyePos().distanceTo(attackVec) > this.wallRange.getValue()) continue;
-                selfDamage = this.calculateDamage(crystal.getPos(), self.player, self.predict);
+                PlayerEntityPredict selfFor = self;
+                if (this.tpOn()) {
+                    double tpReach = Math.min(this.breakRange.getValue(), 4.0);
+                    if (AutoCrystal.mc.player.getEyePos().distanceTo(crystal.getPos()) > tpReach) {
+                        Vec3d tpVec = this.findTpVec(crystal.getPos(), tpReach);
+                        if (tpVec == null) continue;
+                        selfFor = this.selfAt(tpVec);
+                    }
+                }
+                selfDamage = this.calculateDamage(crystal.getPos(), selfFor.player, selfFor.predict);
                 for (PlayerEntityPredict pap : list) {
                     damage = this.calculateDamage(crystal.getPos(), pap.player, pap.predict);
                     if (!(damage > this.breakDamage) || (double)selfDamage > this.maxSelf.getValue() || this.reserve.getValue() > 0.0 && (double)selfDamage > (double)(AutoCrystal.mc.player.getHealth() + AutoCrystal.mc.player.getAbsorptionAmount()) - this.reserve.getValue() || damage < EntityUtil.getHealth((Entity)pap.player) && ((double)damage < this.getDamage(pap.player) || this.balance.getValue() && (this.getDamage(pap.player) == this.forceMin.getValue() ? (double)damage < (double)selfDamage - 2.5 : (double)damage < (double)selfDamage + this.balanceOffset.getValue()))) continue;
@@ -522,7 +580,17 @@ extends Module {
                     base = true;
                 }
                 if (base && stella.BREAK.isMining(pos.down()) && this.detectMining.getValue() || (attackVec = this.getAttackVec(pos.toBottomCenterPos())) == null || this.behindWall(pos, attackVec) || !this.canTouch(pos.down()) || !this.canPlaceCrystal(pos, true, false)) continue;
-                selfDamage = base ? this.calculateBaseDamage(pos, self.player, self.predict) : this.calculateDamage(pos, self.player, self.predict);
+                PlayerEntityPredict selfFor = self;
+                if (this.tpOn()) {
+                    double tpReach = Math.min(this.placeRange.getValue(), 4.5);
+                    Vec3d center = pos.toCenterPos();
+                    if (AutoCrystal.mc.player.getEyePos().distanceTo(center) > tpReach) {
+                        Vec3d tpVec = this.findTpVec(center, tpReach);
+                        if (tpVec == null) continue;
+                        selfFor = this.selfAt(tpVec);
+                    }
+                }
+                selfDamage = base ? this.calculateBaseDamage(pos, selfFor.player, selfFor.predict) : this.calculateDamage(pos, selfFor.player, selfFor.predict);
                 for (PlayerEntityPredict pap : list) {
                     if (base && this.onlyBelow.getValue() && (double)pos.getY() - 0.5 > pap.player.getY()) continue;
                     float f = damage = base ? this.calculateBaseDamage(pos, pap.player, pap.predict) : this.calculateDamage(pos, pap.player, pap.predict);
@@ -575,7 +643,11 @@ extends Module {
         if (!CombatManager.allows(this)) {
             return;
         }
-        if (this.onAdd.getValue() && entity instanceof EndCrystalEntity && (crystal = (EndCrystalEntity)entity).getBlockPos().equals((Object)this.syncPos)) {
+        if (this.rush.getValue() && this.tpOn() && entity instanceof PlayerEntity && CombatUtil.isValid(entity, this.effTargetRange())) {
+            this.rushTimer.reset();
+            this.rushForce = true;
+        }
+        if ((this.onAdd.getValue() || this.rushActive()) && entity instanceof EndCrystalEntity && (crystal = (EndCrystalEntity)entity).getBlockPos().equals((Object)this.syncPos)) {
             this.doBreak(crystal);
         }
     }
@@ -622,6 +694,19 @@ extends Module {
     }
 
     private void doCrystal(BlockPos pos) {
+        if (this.tpCombo.getValue() && this.tpOn() && !this.tpActive) {
+            boolean placeDue = this.canPlaceCrystal(pos, false, false) && (this.rushActive() || this.shouldYawStep() || this.placeTimer.passed((long)this.placeDelay.getValue()));
+            boolean breakDue = !BlockUtil.getEndCrystals(new Box((double)pos.getX(), (double)pos.getY(), (double)pos.getZ(), (double)(pos.getX() + 1), (double)(pos.getY() + 2), (double)(pos.getZ() + 1))).isEmpty() && (this.rushActive() || this.shouldYawStep() || CombatUtil.breakTimer.passed((long)this.breakDelay.getValue()));
+            if (placeDue || breakDue) {
+                this.runWithTp(pos.toCenterPos(), Math.min(Math.min(this.placeRange.getValue(), this.breakRange.getValue()), 4.0), () -> {
+                    if (this.canPlaceCrystal(pos, false, false)) {
+                        this.doPlace(pos, this.rotate.getValue() && this.onPlace.getValue());
+                    }
+                    this.doBreak(pos);
+                });
+                return;
+            }
+        }
         if (this.canPlaceCrystal(pos, false, false)) {
             this.doPlace(pos, this.rotate.getValue() && this.onPlace.getValue());
         }
@@ -640,15 +725,17 @@ extends Module {
             return;
         }
         int old = AutoCrystal.mc.player.getInventory().selectedSlot;
-        this.baseSwap(block);
-        BlockUtil.placeBlock(pos, this.rotate.getValue());
-        if (this.inventory.getValue()) {
+        this.runWithTp(pos.toCenterPos(), Math.min(this.placeRange.getValue(), 4.5), () -> {
             this.baseSwap(block);
-            EntityUtil.syncInventory();
-        } else {
-            this.baseSwap(old);
-        }
-        this.baseTimer.reset();
+            BlockUtil.placeBlock(pos, this.rotate.getValue());
+            if (this.inventory.getValue()) {
+                this.baseSwap(block);
+                EntityUtil.syncInventory();
+            } else {
+                this.baseSwap(old);
+            }
+            this.baseTimer.reset();
+        });
     }
 
     public float calculateDamage(BlockPos pos, PlayerEntity player, PlayerEntity predict) {
@@ -729,7 +816,7 @@ extends Module {
         if (entity.age < this.minAge.getValueInt()) {
             return;
         }
-        if (!this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
+        if (!this.rushActive() && !this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
             if (this.forcePlace.getValue() && this.crystalPos != null) {
                 this.doPlace(this.crystalPos, false);
             }
@@ -741,7 +828,7 @@ extends Module {
             }
             return;
         }
-        if (this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
+        if (!this.rushActive() && this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
             if (this.forcePlace.getValue() && this.crystalPos != null) {
                 this.doPlace(this.crystalPos, false);
             }
@@ -789,7 +876,7 @@ extends Module {
         for (EndCrystalEntity entity : BlockUtil.getEndCrystals(new Box((double)pos.getX(), (double)pos.getY(), (double)pos.getZ(), (double)(pos.getX() + 1), (double)(pos.getY() + 2), (double)(pos.getZ() + 1)))) {
             Vec3d attackVec;
             if (entity.age < this.minAge.getValueInt() || !entity.isAlive()) continue;
-            if (!this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
+            if (!this.rushActive() && !this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
                 if (this.forcePlace.getValue() && this.crystalPos != null) {
                     this.doPlace(this.crystalPos, false);
                 }
@@ -801,7 +888,7 @@ extends Module {
                 }
                 return;
             }
-            if (this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
+            if (!this.rushActive() && this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
                 if (this.forcePlace.getValue() && this.crystalPos != null) {
                     this.doPlace(this.crystalPos, false);
                 }
@@ -855,13 +942,13 @@ extends Module {
         if (facing != Direction.UP && facing != Direction.DOWN) {
             vec = vec.add(0.0, 0.45, 0.0);
         }
-        if (!this.shouldYawStep() && !this.placeTimer.passed((long)this.placeDelay.getValue())) {
+        if (!this.rushActive() && !this.shouldYawStep() && !this.placeTimer.passed((long)this.placeDelay.getValue())) {
             return;
         }
         if (rotate && !this.faceVector(vec)) {
             return;
         }
-        if (!this.placeTimer.passed((long)this.placeDelay.getValue())) {
+        if (!this.rushActive() && !this.placeTimer.passed((long)this.placeDelay.getValue())) {
             return;
         }
         this.runWithTp(pos.down().toCenterPos(), Math.min(this.placeRange.getValue(), 4.5), () -> {

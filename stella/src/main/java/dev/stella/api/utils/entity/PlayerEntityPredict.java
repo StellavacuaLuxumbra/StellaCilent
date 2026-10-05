@@ -16,5 +16,10 @@ public class PlayerEntityPredict {
         this.player = player;
         this.predict = ticks > 0 ? new CopyPlayerEntity(player, true, maxMotionY, ticks, simulation, step, doubleStep, jump, inBlockPause) : player;
     }
+
+    public PlayerEntityPredict(PlayerEntity player, PlayerEntity predict) {
+        this.player = player;
+        this.predict = predict;
+    }
 }
 
