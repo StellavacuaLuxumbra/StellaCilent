@@ -572,6 +572,9 @@ public class PacketMine
         if (PacketMine.unbreakable(pos)) {
             return;
         }
+        if (AutoAnchor.INSTANCE.currentPos != null && pos.equals((Object)AutoAnchor.INSTANCE.currentPos) && BlockUtil.getBlock(pos) == Blocks.RESPAWN_ANCHOR) {
+            return;
+        }
         if (this.breakPos != null && this.preferWeb.getValue() && BlockUtil.getBlock(this.breakPos) == Blocks.COBWEB) {
             return;
         }
@@ -649,6 +652,9 @@ public class PacketMine
             return;
         }
         if (PacketMine.unbreakable(pos)) {
+            return;
+        }
+        if (AutoAnchor.INSTANCE.currentPos != null && pos.equals((Object)AutoAnchor.INSTANCE.currentPos) && BlockUtil.getBlock(pos) == Blocks.RESPAWN_ANCHOR) {
             return;
         }
         if (this.breakPos != null && this.preferWeb.getValue() && BlockUtil.getBlock(this.breakPos) == Blocks.COBWEB) {

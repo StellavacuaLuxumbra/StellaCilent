@@ -45,6 +45,7 @@ import dev.stella.mod.modules.Module;
 import dev.stella.mod.modules.impl.exploit.Blink;
 import dev.stella.mod.modules.impl.movement.ElytraFly;
 import dev.stella.mod.modules.impl.movement.Velocity;
+import dev.stella.mod.modules.impl.player.PacketMine;
 import dev.stella.mod.modules.settings.enums.SwingSide;
 import dev.stella.mod.modules.settings.enums.Timing;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
@@ -107,6 +108,7 @@ extends Module {
     private final BooleanSetting spamPlace = this.add(new BooleanSetting("Fast", true, () -> this.page.getValue() == Page.General).setParent());
     private final BooleanSetting inSpam = this.add(new BooleanSetting("WhenSpamming", true, () -> this.page.getValue() == Page.General && this.spamPlace.isOpen()));
     private final BooleanSetting usingPause = this.add(new BooleanSetting("UsingPause", true, () -> this.page.getValue() == Page.General));
+    private final BooleanSetting pauseOnMine = this.add(new BooleanSetting("PauseOnMine", true, () -> this.page.getValue() == Page.General));
     private final EnumSetting<SwingSide> swingMode = this.add(new EnumSetting<SwingSide>("Swing", SwingSide.All, () -> this.page.getValue() == Page.General));
     private final EnumSetting<Timing> timing = this.add(new EnumSetting<Timing>("Timing", Timing.All, () -> this.page.getValue() == Page.General));
     private final SliderSetting placeDelay = this.add(new SliderSetting("PlaceDelay", 100.0, 0.0, 500.0, 1.0, () -> this.page.getValue() == Page.General).setSuffix("ms"));
@@ -128,6 +130,8 @@ extends Module {
     private final BooleanSetting noSuicide = this.add(new BooleanSetting("NoSuicide", true, () -> this.page.getValue() == Page.Interact));
     private final BooleanSetting smart = this.add(new BooleanSetting("Smart", true, () -> this.page.getValue() == Page.Interact));
     private final BooleanSetting terrainIgnore = this.add(new BooleanSetting("TerrainIgnore", true, () -> this.page.getValue() == Page.Interact));
+    private final BooleanSetting ignoreMine = this.add(new BooleanSetting("IgnoreMine", true, () -> this.page.getValue() == Page.Interact).setParent());
+    private final SliderSetting mineProgress = this.add(new SliderSetting("Progress", 90.0, 0.0, 100.0, () -> this.page.getValue() == Page.Interact && this.ignoreMine.isOpen()).setSuffix("%"));
     private final SliderSetting minPrefer = this.add(new SliderSetting("Prefer", 7.0, 0.0, 36.0, 0.1, () -> this.page.getValue() == Page.Interact).setSuffix("dmg"));
     private final SliderSetting maxSelfDamage = this.add(new SliderSetting("MaxSelf", 8.0, 0.0, 36.0, 0.1, () -> this.page.getValue() == Page.Interact).setSuffix("dmg"));
     private final EnumSetting<Aura.TargetESP> mode = this.add(new EnumSetting<Aura.TargetESP>("TargetESP", Aura.TargetESP.Jello, () -> this.page.getValue() == Page.Render));
@@ -294,6 +298,17 @@ extends Module {
         if (this.usingPause.getValue() && AutoAnchor.mc.player.isUsingItem()) {
             this.currentPos = null;
             return;
+        }
+        if (this.pauseOnMine.getValue()) {
+            if (PacketMine.INSTANCE.obsidian.isPressed()) {
+                this.currentPos = null;
+                return;
+            }
+            BlockPos minePos = PacketMine.getBreakPos();
+            if (minePos != null && minePos.equals((Object)this.currentPos) && BlockUtil.getBlock(minePos) != Blocks.RESPAWN_ANCHOR) {
+                this.currentPos = null;
+                return;
+            }
         }
         if (this.inventorySwap.getValue() && !EntityUtil.inInventory()) {
             return;
@@ -527,10 +542,15 @@ extends Module {
     }
 
     public double getAnchorDamage(BlockPos anchorPos, PlayerEntity target, PlayerEntity predict) {
+        if (this.ignoreMine.getValue() && PacketMine.getBreakPos() != null && AutoAnchor.mc.player.getEyePos().distanceTo(PacketMine.getBreakPos().toCenterPos()) <= PacketMine.INSTANCE.range.getValue() && PacketMine.progress >= this.mineProgress.getValue() / 100.0) {
+            CombatUtil.modifyPos = PacketMine.getBreakPos();
+            CombatUtil.modifyBlockState = Blocks.AIR.getDefaultState();
+        }
         if (this.terrainIgnore.getValue()) {
             CombatUtil.terrainIgnore = true;
         }
         double damage = ExplosionUtil.anchorDamage(anchorPos, (LivingEntity)target, (LivingEntity)predict);
+        CombatUtil.modifyPos = null;
         CombatUtil.terrainIgnore = false;
         return damage;
     }
