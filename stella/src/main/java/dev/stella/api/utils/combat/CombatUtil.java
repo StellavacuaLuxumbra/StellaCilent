@@ -23,7 +23,7 @@ import dev.stella.api.utils.math.MathUtil;
 import dev.stella.api.utils.math.Timer;
 import dev.stella.api.utils.player.EntityUtil;
 import dev.stella.api.utils.world.BlockUtil;
-import dev.stella.mod.modules.impl.client.AntiCheat;
+import dev.stella.mod.modules.settings.enums.SwingSide;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.block.BlockState;
@@ -69,7 +69,7 @@ implements Wrapper {
     }
 
     public static void attackWithDelay(Entity entity, boolean rotate, boolean usingPause) {
-        if (!breakTimer.passed((long)(AntiCheat.INSTANCE.attackDelay.getValue() * 1000.0))) {
+        if (!breakTimer.passed(200L)) {
             return;
         }
         if (usingPause && CombatUtil.mc.player.isUsingItem()) {
@@ -81,19 +81,13 @@ implements Wrapper {
     public static void attack(Entity entity, boolean rotate) {
         if (entity != null) {
             Vec3d attackVec = MathUtil.getClosestPointToBox(CombatUtil.mc.player.getEyePos(), entity.getBoundingBox());
-            if (CombatUtil.mc.player.getEyePos().distanceTo(attackVec) > AntiCheat.INSTANCE.ieRange.getValue()) {
+            if (CombatUtil.mc.player.getEyePos().distanceTo(attackVec) > 3.0) {
                 return;
             }
             breakTimer.reset();
-            if (rotate && AntiCheat.INSTANCE.attackRotate.getValue()) {
-                stella.ROTATION.lookAt(attackVec);
-            }
             mc.getNetworkHandler().sendPacket((Packet)PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)CombatUtil.mc.player.isSneaking()));
             CombatUtil.mc.player.resetLastAttackedTicks();
-            EntityUtil.swingHand(Hand.MAIN_HAND, AntiCheat.INSTANCE.attackSwing.getValue());
-            if (rotate && AntiCheat.INSTANCE.attackRotate.getValue()) {
-                stella.ROTATION.snapBack();
-            }
+            EntityUtil.swingHand(Hand.MAIN_HAND, SwingSide.All);
         }
     }
 

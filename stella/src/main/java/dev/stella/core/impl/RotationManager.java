@@ -33,11 +33,10 @@ import dev.stella.api.utils.math.MathUtil;
 import dev.stella.api.utils.math.Timer;
 import dev.stella.api.utils.path.BaritoneUtil;
 import dev.stella.asm.accessors.IClientPlayerEntity;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.client.ClientSetting;
 import dev.stella.mod.modules.impl.movement.HoleSnap;
+import dev.stella.mod.modules.impl.movement.MovementSync;
 import dev.stella.mod.modules.impl.player.Freecam;
-import dev.stella.mod.modules.settings.enums.SnapBack;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.math.BlockPos;
@@ -80,45 +79,7 @@ implements Wrapper {
         stella.EVENT_BUS.subscribe(this);
     }
 
-    @EventListener
-    public void onInteract(InteractItemEvent event) {
-        if (AntiCheat.INSTANCE.interactRotation.getValue() && RotationManager.mc.player != null) {
-            if (event.isPre()) {
-                this.snapAt(RotationManager.mc.player.getYaw(), RotationManager.mc.player.getPitch());
-            } else {
-                this.snapBack();
-            }
-        }
-    }
-
-    @EventListener
-    public void onInteract(InteractBlockEvent event) {
-        if (AntiCheat.INSTANCE.interactRotation.getValue() && RotationManager.mc.player != null) {
-            if (event.isPre()) {
-                this.snapAt(RotationManager.mc.player.getYaw(), RotationManager.mc.player.getPitch());
-            } else {
-                this.snapBack();
-            }
-        }
-    }
-
-    @EventListener
-    public void doAttack(DoAttackEvent event) {
-        if (AntiCheat.INSTANCE.interactRotation.getValue() && RotationManager.mc.player != null) {
-            if (event.isPre()) {
-                this.snapAt(RotationManager.mc.player.getYaw(), RotationManager.mc.player.getPitch());
-            } else {
-                this.snapBack();
-            }
-        }
-    }
-
     public void snapBack() {
-        if (AntiCheat.INSTANCE.snapBackEnum.is(SnapBack.Force)) {
-            mc.getNetworkHandler().sendPacket((Packet)new PlayerMoveC2SPacket.Full(RotationManager.mc.player.getX(), RotationManager.mc.player.getY(), RotationManager.mc.player.getZ(), this.rotationYaw, this.rotationPitch, RotationManager.mc.player.isOnGround()));
-        } else if (AntiCheat.INSTANCE.snapBackEnum.is(SnapBack.Tick)) {
-            snapBack = true;
-        }
     }
 
     public void lookAt(Vec3d directionVec) {
@@ -133,11 +94,7 @@ implements Wrapper {
 
     public void snapAt(float yaw, float pitch) {
         this.setRenderRotation(yaw, pitch, true);
-        if (AntiCheat.INSTANCE.grimRotation.getValue()) {
-            mc.getNetworkHandler().sendPacket((Packet)new PlayerMoveC2SPacket.Full(RotationManager.mc.player.getX(), RotationManager.mc.player.getY(), RotationManager.mc.player.getZ(), yaw, pitch, RotationManager.mc.player.isOnGround()));
-        } else {
-            mc.getNetworkHandler().sendPacket((Packet)new PlayerMoveC2SPacket.LookAndOnGround(yaw, pitch, RotationManager.mc.player.isOnGround()));
-        }
+        mc.getNetworkHandler().sendPacket((Packet)new PlayerMoveC2SPacket.LookAndOnGround(yaw, pitch, RotationManager.mc.player.isOnGround()));
     }
 
     public void snapAt(Vec3d directionVec) {
@@ -171,7 +128,7 @@ implements Wrapper {
 
     @EventListener
     public void update(SendMovementPacketsEvent event) {
-        if (AntiCheat.INSTANCE.movementSync() && !BaritoneUtil.isActive()) {
+        if (MovementSync.INSTANCE.isOn() && !BaritoneUtil.isActive()) {
             event.setYaw(this.nextYaw);
             event.setPitch(this.nextPitch);
         } else {
@@ -187,7 +144,7 @@ implements Wrapper {
         if (RotationManager.mc.player == null) {
             return;
         }
-        if (AntiCheat.INSTANCE.movementSync() && !BaritoneUtil.isActive()) {
+        if (MovementSync.INSTANCE.isOn() && !BaritoneUtil.isActive()) {
             UpdateRotateEvent updateRotateEvent = UpdateRotateEvent.get(RotationManager.mc.player.getYaw(), RotationManager.mc.player.getPitch());
             stella.EVENT_BUS.post(updateRotateEvent);
             this.nextYaw = updateRotateEvent.getYaw();
@@ -209,8 +166,8 @@ implements Wrapper {
             float[] newAngle = this.injectStep(rotationEvent.getTarget(), rotationEvent.getSpeed());
             event.setYaw(newAngle[0]);
             event.setPitch(newAngle[1]);
-        } else if (!event.isModified() && AntiCheat.INSTANCE.look.getValue() && directionVec != null && !ROTATE_TIMER.passed((long)(AntiCheat.INSTANCE.rotateTime.getValue() * 1000.0))) {
-            float[] newAngle = this.injectStep(directionVec, AntiCheat.INSTANCE.steps.getValueFloat());
+        } else if (!event.isModified() && directionVec != null && !ROTATE_TIMER.passed(500L)) {
+            float[] newAngle = this.injectStep(directionVec, 0.6f);
             event.setYaw(newAngle[0]);
             event.setPitch(newAngle[1]);
         }
@@ -218,7 +175,7 @@ implements Wrapper {
 
     @EventListener
     public void travel(TravelEvent e) {
-        if (!AntiCheat.INSTANCE.movementSync()) {
+        if (!MovementSync.INSTANCE.isOn()) {
             return;
         }
         if (BaritoneUtil.isActive()) {
@@ -240,7 +197,7 @@ implements Wrapper {
 
     @EventListener
     public void onJump(JumpEvent e) {
-        if (!AntiCheat.INSTANCE.movementSync()) {
+        if (!MovementSync.INSTANCE.isOn()) {
             return;
         }
         if (BaritoneUtil.isActive()) {
@@ -262,7 +219,7 @@ implements Wrapper {
 
     @EventListener
     public void onFirework(FireworkShooterRotationEvent event) {
-        if (!AntiCheat.INSTANCE.movementSync()) {
+        if (!MovementSync.INSTANCE.isOn()) {
             return;
         }
         if (BaritoneUtil.isActive()) {
@@ -277,7 +234,7 @@ implements Wrapper {
 
     @EventListener(priority=-999)
     public void onKeyInput(KeyboardInputEvent e) {
-        if (!AntiCheat.INSTANCE.movementSync()) {
+        if (!MovementSync.INSTANCE.isOn()) {
             // 检查是否是 EFly Grim 模式
             dev.stella.mod.modules.impl.movement.EFly efly = dev.stella.mod.modules.impl.movement.EFly.INSTANCE;
             boolean isEFlyGrim = efly != null && efly.isOn() && efly.mode.getValue() == dev.stella.mod.modules.impl.movement.EFly.Mode.Grim;
@@ -307,15 +264,13 @@ implements Wrapper {
     }
 
     public float[] injectStep(Vec3d vec, float steps) {
-        float currentYaw = AntiCheat.INSTANCE.serverSide.getValue() ? this.getLastYaw() : this.rotationYaw;
-        float currentPitch = AntiCheat.INSTANCE.serverSide.getValue() ? this.getLastPitch() : this.rotationPitch;
+        float currentYaw = this.rotationYaw;
+        float currentPitch = this.rotationPitch;
         float yawDelta = MathHelper.wrapDegrees((float)((float)MathHelper.wrapDegrees((double)(Math.toDegrees(Math.atan2(vec.z - RotationManager.mc.player.getZ(), vec.x - RotationManager.mc.player.getX())) - 90.0)) - currentYaw));
         float pitchDelta = (float)(-Math.toDegrees(Math.atan2(vec.y - (RotationManager.mc.player.getPos().y + (double)RotationManager.mc.player.getEyeHeight(RotationManager.mc.player.getPose())), Math.sqrt(Math.pow(vec.x - RotationManager.mc.player.getX(), 2.0) + Math.pow(vec.z - RotationManager.mc.player.getZ(), 2.0))))) - currentPitch;
-        if (AntiCheat.INSTANCE.random.getValue()) {
-            float angleToRad = (float)Math.toRadians(27 * (RotationManager.mc.player.age % 30));
-            yawDelta = (float)((double)yawDelta + Math.sin(angleToRad) * 3.0) + MathUtil.random(-1.0f, 1.0f);
-            pitchDelta += MathUtil.random(-0.6f, 0.6f);
-        }
+        float angleToRad = (float)Math.toRadians(27 * (RotationManager.mc.player.age % 30));
+        yawDelta = (float)((double)yawDelta + Math.sin(angleToRad) * 3.0) + MathUtil.random(-1.0f, 1.0f);
+        pitchDelta += MathUtil.random(-0.6f, 0.6f);
         if (yawDelta > 180.0f) {
             yawDelta -= 180.0f;
         }
@@ -328,15 +283,13 @@ implements Wrapper {
     }
 
     public float[] injectStep(float[] angle, float steps) {
-        float currentYaw = AntiCheat.INSTANCE.serverSide.getValue() ? this.getLastYaw() : this.rotationYaw;
-        float currentPitch = AntiCheat.INSTANCE.serverSide.getValue() ? this.getLastPitch() : this.rotationPitch;
+        float currentYaw = this.rotationYaw;
+        float currentPitch = this.rotationPitch;
         float yawDelta = MathHelper.wrapDegrees((float)(angle[0] - currentYaw));
         float pitchDelta = angle[1] - currentPitch;
-        if (AntiCheat.INSTANCE.random.getValue()) {
-            float angleToRad = (float)Math.toRadians(27 * (RotationManager.mc.player.age % 30));
-            yawDelta = (float)((double)yawDelta + Math.sin(angleToRad) * 3.0) + MathUtil.random(-1.0f, 1.0f);
-            pitchDelta += MathUtil.random(-0.6f, 0.6f);
-        }
+        float angleToRad = (float)Math.toRadians(27 * (RotationManager.mc.player.age % 30));
+        yawDelta = (float)((double)yawDelta + Math.sin(angleToRad) * 3.0) + MathUtil.random(-1.0f, 1.0f);
+        pitchDelta += MathUtil.random(-0.6f, 0.6f);
         if (yawDelta > 180.0f) {
             yawDelta -= 180.0f;
         }
@@ -456,7 +409,7 @@ implements Wrapper {
 
     public void setLastYaw(float lastYaw) {
         this.lastYaw = lastYaw;
-        if (AntiCheat.INSTANCE.forceSync.getValue() && stella.SERVER.playerNull.passedS(0.15)) {
+        if (stella.SERVER.playerNull.passedS(0.15)) {
             ((IClientPlayerEntity)RotationManager.mc.player).setLastYaw(lastYaw);
         }
     }
@@ -467,7 +420,7 @@ implements Wrapper {
 
     public void setLastPitch(float lastPitch) {
         this.lastPitch = lastPitch;
-        if (AntiCheat.INSTANCE.forceSync.getValue() && stella.SERVER.playerNull.passedS(0.15)) {
+        if (stella.SERVER.playerNull.passedS(0.15)) {
             ((IClientPlayerEntity)RotationManager.mc.player).setLastPitch(lastPitch);
         }
     }

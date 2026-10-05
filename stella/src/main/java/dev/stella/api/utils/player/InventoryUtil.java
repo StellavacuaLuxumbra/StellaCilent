@@ -22,7 +22,6 @@ package dev.stella.api.utils.player;
 
 import dev.stella.api.utils.Wrapper;
 import dev.stella.api.utils.world.BlockUtil;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.block.Block;
@@ -37,7 +36,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PickFromInventoryC2SPacket;
 import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
 import net.minecraft.screen.slot.SlotActionType;
 
@@ -60,18 +58,8 @@ implements Wrapper {
         if (!EntityUtil.inInventory()) {
             return;
         }
-        if (AntiCheat.INSTANCE.invSwapBypass.getValue()) {
-            if (slot - 36 >= 0) {
-                lastSlot = slot;
-                lastSelect = selectedSlot;
-                InventoryUtil.switchToSlot(slot - 36);
-                return;
-            }
-            mc.getNetworkHandler().sendPacket((Packet)new PickFromInventoryC2SPacket(slot));
-        } else {
-            InventoryUtil.mc.interactionManager.clickSlot(InventoryUtil.mc.player.currentScreenHandler.syncId, slot, selectedSlot, SlotActionType.SWAP, (PlayerEntity)InventoryUtil.mc.player);
-            InventoryUtil.mc.player.getInventory().updateItems();
-        }
+        InventoryUtil.mc.interactionManager.clickSlot(InventoryUtil.mc.player.currentScreenHandler.syncId, slot, selectedSlot, SlotActionType.SWAP, (PlayerEntity)InventoryUtil.mc.player);
+        InventoryUtil.mc.player.getInventory().updateItems();
     }
 
     public static void switchToSlot(int slot) {
@@ -145,26 +133,14 @@ implements Wrapper {
     }
 
     public static int findClassInventorySlot(Class<?> clazz) {
-        if (AntiCheat.INSTANCE.priorHotbar.getValue()) {
-            for (int i = 0; i < 36; ++i) {
-                ItemStack stack = InventoryUtil.mc.player.getInventory().getStack(i);
-                if (stack == ItemStack.EMPTY) continue;
-                if (clazz.isInstance(stack.getItem())) {
-                    return i < 9 ? i + 36 : i;
-                }
-                if (!(stack.getItem() instanceof BlockItem) || !clazz.isInstance(((BlockItem)stack.getItem()).getBlock())) continue;
+        for (int i = 35; i >= 0; --i) {
+            ItemStack stack = InventoryUtil.mc.player.getInventory().getStack(i);
+            if (stack == ItemStack.EMPTY) continue;
+            if (clazz.isInstance(stack.getItem())) {
                 return i < 9 ? i + 36 : i;
             }
-        } else {
-            for (int i = 35; i >= 0; --i) {
-                ItemStack stack = InventoryUtil.mc.player.getInventory().getStack(i);
-                if (stack == ItemStack.EMPTY) continue;
-                if (clazz.isInstance(stack.getItem())) {
-                    return i < 9 ? i + 36 : i;
-                }
-                if (!(stack.getItem() instanceof BlockItem) || !clazz.isInstance(((BlockItem)stack.getItem()).getBlock())) continue;
-                return i < 9 ? i + 36 : i;
-            }
+            if (!(stack.getItem() instanceof BlockItem) || !clazz.isInstance(((BlockItem)stack.getItem()).getBlock())) continue;
+            return i < 9 ? i + 36 : i;
         }
         return -1;
     }
@@ -201,9 +177,6 @@ implements Wrapper {
     }
 
     public static int findItemInventorySlot(Item item) {
-        if (AntiCheat.INSTANCE.priorHotbar.getValue()) {
-            return InventoryUtil.findItemInventorySlotFromZero(item.asItem());
-        }
         for (int i = 35; i >= 0; --i) {
             ItemStack stack = InventoryUtil.mc.player.getInventory().getStack(i);
             if (stack.getItem() != item) continue;

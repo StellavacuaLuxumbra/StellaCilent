@@ -154,7 +154,7 @@ implements Wrapper {
     public static List<Entity> getEntities(Box box) {
         ArrayList<Entity> list = new ArrayList<Entity>();
         for (Entity entity : stella.THREAD.getEntities()) {
-            if (entity == null || entity instanceof ArmorStandEntity && AntiCheat.INSTANCE.ignoreArmorStand.getValue() || !entity.getBoundingBox().intersects(box)) continue;
+            if (entity == null || !entity.getBoundingBox().intersects(box)) continue;
             list.add(entity);
         }
         return list;
@@ -176,7 +176,7 @@ implements Wrapper {
 
     public static boolean hasEntity(Box box, boolean ignoreCrystal) {
         for (Entity entity : BlockUtil.getEntities(box)) {
-            if (!entity.isAlive() || entity instanceof ItemEntity || entity instanceof ExperienceOrbEntity || entity instanceof ExperienceBottleEntity || entity instanceof ArrowEntity || ignoreCrystal && entity instanceof EndCrystalEntity && BlockUtil.mc.player.getEyePos().distanceTo(MathUtil.getClosestPoint(entity)) <= AntiCheat.INSTANCE.ieRange.getValue()) continue;
+            if (!entity.isAlive() || entity instanceof ItemEntity || entity instanceof ExperienceOrbEntity || entity instanceof ExperienceBottleEntity || entity instanceof ArrowEntity || ignoreCrystal && entity instanceof EndCrystalEntity && BlockUtil.mc.player.getEyePos().distanceTo(MathUtil.getClosestPoint(entity)) <= 3.0) continue;
             return true;
         }
         return false;
@@ -196,7 +196,7 @@ implements Wrapper {
 
     public static boolean noEntityBlockCrystal(BlockPos pos, boolean ignoreCrystal, boolean ignoreItem) {
         for (Entity entity : BlockUtil.getEntities(new Box(pos))) {
-            if (!entity.isAlive() || ignoreItem && entity instanceof ItemEntity || ignoreCrystal && entity instanceof EndCrystalEntity && BlockUtil.mc.player.getEyePos().distanceTo(MathUtil.getClosestPoint(entity)) <= AntiCheat.INSTANCE.ieRange.getValue()) continue;
+            if (!entity.isAlive() || ignoreItem && entity instanceof ItemEntity || ignoreCrystal && entity instanceof EndCrystalEntity && BlockUtil.mc.player.getEyePos().distanceTo(MathUtil.getClosestPoint(entity)) <= 3.0) continue;
             return false;
         }
         return true;
@@ -220,7 +220,7 @@ implements Wrapper {
     }
 
     public static void placeBlock(BlockPos pos, boolean rotate) {
-        BlockUtil.placeBlock(pos, rotate, AntiCheat.INSTANCE.packetPlace.getValue());
+        BlockUtil.placeBlock(pos, rotate, true);
     }
 
     public static void placeBlock(BlockPos pos, boolean rotate, boolean packet) {
@@ -242,7 +242,7 @@ implements Wrapper {
     }
 
     public static void clickBlock(BlockPos pos, Direction side, boolean rotate, Hand hand) {
-        BlockUtil.clickBlock(pos, side, rotate, hand, AntiCheat.INSTANCE.packetPlace.getValue());
+        BlockUtil.clickBlock(pos, side, rotate, hand, true);
     }
 
     public static void clickBlock(BlockPos pos, Direction side, boolean rotate, boolean packet) {
@@ -254,7 +254,7 @@ implements Wrapper {
         if (rotate) {
             stella.ROTATION.lookAt(directionVec);
         }
-        EntityUtil.swingHand(hand, AntiCheat.INSTANCE.interactSwing.getValue());
+        EntityUtil.swingHand(hand, SwingSide.All);
         BlockHitResult result = new BlockHitResult(directionVec, side, pos, false);
         if (packet) {
             Module.sendSequencedPacket(id -> new PlayerInteractBlockC2SPacket(hand, result, id));
@@ -282,22 +282,16 @@ implements Wrapper {
     }
 
     public static void airPlace(BlockPos pos, boolean rotate) {
-        BlockUtil.airPlace(pos, rotate, Hand.MAIN_HAND, AntiCheat.INSTANCE.packetPlace.getValue());
+        BlockUtil.airPlace(pos, rotate, Hand.MAIN_HAND, true);
     }
 
     public static void airPlace(BlockPos pos, boolean rotate, Hand hand, boolean packet) {
-        boolean bypass;
-        boolean bl = bypass = hand == Hand.MAIN_HAND && AirPlace.INSTANCE.grimBypass.getValue();
-        if (bypass) {
-            mc.getNetworkHandler().sendPacket((Packet)new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND, new BlockPos(0, 0, 0), Direction.DOWN));
-            hand = Hand.OFF_HAND;
-        }
         Direction side = BlockUtil.getClickSide(pos);
         Vec3d directionVec = new Vec3d((double)pos.getX() + 0.5 + (double)side.getVector().getX() * 0.5, (double)pos.getY() + 0.5 + (double)side.getVector().getY() * 0.5, (double)pos.getZ() + 0.5 + (double)side.getVector().getZ() * 0.5);
         if (rotate) {
             stella.ROTATION.lookAt(directionVec);
         }
-        EntityUtil.swingHand(hand, AntiCheat.INSTANCE.interactSwing.getValue());
+        EntityUtil.swingHand(hand, SwingSide.All);
         BlockHitResult result = new BlockHitResult(directionVec, side, pos, false);
         if (packet) {
             Hand finalHand = hand;
@@ -308,9 +302,6 @@ implements Wrapper {
         BlockUtil.mc.itemUseCooldown = 4;
         if (rotate) {
             stella.ROTATION.snapBack();
-        }
-        if (bypass) {
-            mc.getNetworkHandler().sendPacket((Packet)new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND, new BlockPos(0, 0, 0), Direction.DOWN));
         }
     }
 
@@ -403,33 +394,10 @@ implements Wrapper {
     }
 
     public static boolean isStrictDirection(BlockPos pos, Direction side) {
-        switch (AntiCheat.INSTANCE.placement.getValue()) {
-            case Vanilla: {
-                return true;
-            }
-            case Legit: {
-                return EntityUtil.canSee(pos, side);
-            }
-            case Grim: {
-                return BlockUtil.grimStrictDirectionCheck(pos, side, BlockUtil.mc.world, BlockUtil.mc.player);
-            }
-            case NCP: {
-                if (BlockUtil.mc.world.getBlockState(pos.offset(side)).isFullCube((BlockView)BlockUtil.mc.world, pos.offset(side))) {
-                    return false;
-                }
-                Vec3d eyePos = BlockUtil.mc.player.getEyePos();
-                Vec3d blockCenter = pos.toCenterPos();
-                ArrayList<Direction> validAxis = new ArrayList<Direction>();
-                validAxis.addAll(BlockUtil.checkAxis(eyePos.x - blockCenter.x, Direction.WEST, Direction.EAST, false));
-                validAxis.addAll(BlockUtil.checkAxis(eyePos.y - blockCenter.y, Direction.DOWN, Direction.UP, true));
-                validAxis.addAll(BlockUtil.checkAxis(eyePos.z - blockCenter.z, Direction.NORTH, Direction.SOUTH, false));
-                return validAxis.contains(side);
-            }
-        }
         return true;
     }
 
-    public static boolean grimStrictDirectionCheck(BlockPos pos, Direction direction, ClientWorld level, ClientPlayerEntity player) {
+    public static ArrayList<Direction> checkAxis(double diff, Direction negativeSide, Direction positiveSide, boolean vertical) {
         boolean bl;
         block10: {
             block9: {
@@ -581,7 +549,7 @@ implements Wrapper {
         if (pos.getY() >= 320) {
             return false;
         }
-        if (AntiCheat.INSTANCE.multiPlace.getValue() && placedPos.contains(pos)) {
+        if (placedPos.contains(pos)) {
             return false;
         }
         BlockState state = BlockUtil.mc.world.getBlockState(pos);
@@ -592,7 +560,7 @@ implements Wrapper {
     }
 
     public static boolean canClick(BlockPos pos) {
-        if (AntiCheat.INSTANCE.multiPlace.getValue() && placedPos.contains(pos)) {
+        if (placedPos.contains(pos)) {
             return true;
         }
         BlockState state = BlockUtil.mc.world.getBlockState(pos);

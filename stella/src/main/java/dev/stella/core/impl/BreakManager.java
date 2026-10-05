@@ -22,7 +22,6 @@ import dev.stella.api.utils.Wrapper;
 import dev.stella.api.utils.math.FadeUtils;
 import dev.stella.api.utils.math.Timer;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.player.PacketMine;
 import dev.stella.mod.modules.impl.render.BreakESP;
 import java.util.Iterator;
@@ -54,14 +53,12 @@ implements Wrapper {
         if (Module.nullCheck()) {
             return;
         }
-        if (AntiCheat.INSTANCE.detectDouble.getValue()) {
-            Iterator<Object> iterator = ((ConcurrentHashMap.KeySetView)stella.BREAK.doubleMap.keySet()).iterator();
-            while (iterator.hasNext()) {
-                int i = (Integer)iterator.next();
-                BreakData breakData = stella.BREAK.doubleMap.get(i);
-                if (breakData != null && breakData.getEntity() != null && !BreakManager.mc.world.isAir(breakData.pos) && !breakData.timer.passedMs(Math.max(AntiCheat.INSTANCE.minTimeout.getValue() * 1000.0, breakData.breakTime * AntiCheat.INSTANCE.doubleMineTimeout.getValue()))) continue;
-                stella.BREAK.doubleMap.remove(i);
-            }
+        Iterator<Object> iterator = ((ConcurrentHashMap.KeySetView)stella.BREAK.doubleMap.keySet()).iterator();
+        while (iterator.hasNext()) {
+            int i = (Integer)iterator.next();
+            BreakData breakData = stella.BREAK.doubleMap.get(i);
+            if (breakData != null && breakData.getEntity() != null && !BreakManager.mc.world.isAir(breakData.pos) && !breakData.timer.passedMs(Math.max(2000.0, breakData.breakTime * 2.0))) continue;
+            stella.BREAK.doubleMap.remove(i);
         }
         for (BreakData breakData : this.breakMap.values()) {
             breakData.breakTime = Math.max(BreakESP.getBreakTime(breakData.pos, false), 50.0);
@@ -77,7 +74,7 @@ implements Wrapper {
                 breakData.failed = false;
                 continue;
             }
-            if (!breakData.complete && breakData.timer.passedMs(breakData.breakTime * AntiCheat.INSTANCE.breakTimeout.getValue())) {
+            if (!breakData.complete && breakData.timer.passedMs(breakData.breakTime * 1.5)) {
                 breakData.fade.setLength(0L);
                 breakData.failed = true;
                 continue;
@@ -105,7 +102,7 @@ implements Wrapper {
             if (MathHelper.sqrt((float)((float)breakData.getEntity().getEyePos().squaredDistanceTo(packet2.getPos().toCenterPos()))) > 8.0f) {
                 return;
             }
-            if (AntiCheat.INSTANCE.detectDouble.getValue() && packet2.getProgress() != 255) {
+            if (packet2.getProgress() != 255) {
                 if (packet2.getProgress() != 0) {
                     BreakData doublePos = this.doubleMap.get(packet2.getEntityId());
                     if (doublePos != null) {
@@ -126,7 +123,7 @@ implements Wrapper {
             }
             this.breakMap.put(packet2.getEntityId(), breakData);
             stella.EVENT_BUS.post(BlockBreakingProgressEvent.get(packet2.getPos(), packet2.getEntityId(), packet2.getProgress()));
-            if (AntiCheat.INSTANCE.detectDouble.getValue() && !this.doubleMap.containsKey(packet2.getEntityId()) && !PacketMine.unbreakable(packet2.getPos())) {
+            if (!this.doubleMap.containsKey(packet2.getEntityId()) && !PacketMine.unbreakable(packet2.getPos())) {
                 this.doubleMap.put(packet2.getEntityId(), new BreakData(packet2.getPos(), packet2.getEntityId(), true));
             }
         }

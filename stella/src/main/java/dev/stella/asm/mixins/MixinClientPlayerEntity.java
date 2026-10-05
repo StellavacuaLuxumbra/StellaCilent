@@ -38,7 +38,6 @@ import dev.stella.api.events.impl.TickMovementEvent;
 import dev.stella.asm.accessors.IClientPlayerEntity;
 import dev.stella.core.impl.CommandManager;
 import dev.stella.core.impl.RotationManager;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.client.ClientSetting;
 import dev.stella.mod.modules.impl.exploit.PacketControl;
 import dev.stella.mod.modules.impl.movement.NoSlow;
@@ -207,13 +206,7 @@ extends AbstractClientPlayerEntity {
                     ((ClientPlayerEntity)(Object)this).input.movementForward = 0.0f;
                     ((ClientPlayerEntity)(Object)this).input.movementSideways = 0.0f;
                 }
-                // Strong mode - tick events at tick HEAD
-                if (AntiCheat.INSTANCE.acMode.is(AntiCheat.AcMode.Strong)) {
-                    stella.EVENT_BUS.post(TickEvent.get(Event.Stage.Pre));
-                    RotationManager.INSTANCE.onUpdate();
-                } else {
-                    stella.EVENT_BUS.post(TickEvent.get(Event.Stage.Pre));
-                }
+                stella.EVENT_BUS.post(TickEvent.get(Event.Stage.Pre));
             }
             catch (Exception e) {
                 e.printStackTrace();
@@ -227,12 +220,7 @@ extends AbstractClientPlayerEntity {
     private void tickReturn(CallbackInfo ci) {
         block2: {
             try {
-                // Strong mode - tick events at tick RETURN
-                if (AntiCheat.INSTANCE.acMode.is(AntiCheat.AcMode.Strong)) {
-                    stella.EVENT_BUS.post(TickEvent.get(Event.Stage.Post));
-                } else {
-                    stella.EVENT_BUS.post(TickEvent.get(Event.Stage.Post));
-                }
+                stella.EVENT_BUS.post(TickEvent.get(Event.Stage.Post));
             }
             catch (Exception e) {
                 e.printStackTrace();
@@ -244,12 +232,6 @@ extends AbstractClientPlayerEntity {
 
     @Inject(method={"sendMovementPackets"}, at={@At(value="HEAD")}, cancellable=true)
     private void onSendMovementPacketsHead(CallbackInfo info) {
-        // Soft mode - tick events at sendMovementPackets
-        if (AntiCheat.INSTANCE.acMode.is(AntiCheat.AcMode.Soft)) {
-            stella.EVENT_BUS.post(TickEvent.get(Event.Stage.Pre));
-            RotationManager.INSTANCE.onUpdate();
-        }
-        
         // Post movement tick event
         stella.EVENT_BUS.post(TickEvent.get(Event.Stage.Post));
         
@@ -335,19 +317,6 @@ extends AbstractClientPlayerEntity {
             ((IClientPlayerEntity)((Object)this)).setLastYaw(999.0f);
             RotationManager.snapBack = false;
             return;
-        }
-        if (AntiCheat.INSTANCE.fullPackets.getValue()) {
-            boolean bl3;
-            double d = this.getX() - this.lastX;
-            double e = this.getY() - this.lastBaseY;
-            double f = this.getZ() - this.lastZ;
-            double g = this.getYaw() - this.lastYaw;
-            double h = this.getPitch() - this.lastPitch;
-            boolean bl = bl3 = g != 0.0 || h != 0.0;
-            if (AntiCheat.INSTANCE.force.getValue() || !(MathHelper.squaredMagnitude((double)d, (double)e, (double)f) > MathHelper.square((double)2.0E-4)) && this.ticksSinceLastPositionPacketSent >= 19 || bl3) {
-                ((IClientPlayerEntity)((Object)this)).setTicksSinceLastPositionPacketSent(50);
-                ((IClientPlayerEntity)((Object)this)).setLastYaw(999.0f);
-            }
         }
 
         if (dev.stella.mod.modules.impl.movement.EFly.isStandingFly() && this.isFallFlying()) {

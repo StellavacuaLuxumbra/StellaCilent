@@ -13,7 +13,6 @@ package dev.stella.mod.modules;
 import dev.stella.stella;
 import dev.stella.core.impl.CommandManager;
 import dev.stella.mod.Mod;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.client.BaritoneModule;
 import dev.stella.mod.modules.impl.client.ClickGui;
 import dev.stella.mod.modules.impl.client.ClientSetting;
@@ -61,7 +60,7 @@ extends Mod {
     }
 
     private boolean hideInModuleList() {
-        return this instanceof ColorsModule || this instanceof BaritoneModule || this instanceof AntiCheat || this instanceof ClientSetting || this instanceof HudSetting || this.getName().equals("Info");
+        return this instanceof ColorsModule || this instanceof BaritoneModule || this instanceof ClientSetting || this instanceof HudSetting || this.getName().equals("Info");
     }
 
     public void setChinese(String chinese) {

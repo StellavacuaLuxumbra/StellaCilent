@@ -23,16 +23,12 @@ import dev.stella.api.events.impl.PacketEvent;
 import dev.stella.api.utils.Wrapper;
 import dev.stella.api.utils.math.MathUtil;
 import dev.stella.api.utils.math.Timer;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.client.Fonts;
-import dev.stella.mod.modules.impl.combat.Criticals;
 import dev.stella.mod.modules.impl.misc.AutoLog;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
 import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
 import net.minecraft.network.packet.s2c.play.ChatMessageS2CPacket;
 import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
@@ -59,23 +55,6 @@ implements Wrapper {
         return bd.floatValue();
     }
 
-    @EventListener(priority=-200)
-    public void onPacket(PacketEvent.Send event) {
-        if (AntiCheat.INSTANCE.attackCDFix.getValue()) {
-            UpdateSelectedSlotC2SPacket packet2;
-            if (event.isCancelled()) {
-                return;
-            }
-            Packet<?> packet = event.getPacket();
-            if (packet instanceof HandSwingC2SPacket || packet instanceof PlayerInteractEntityC2SPacket && Criticals.getInteractType((PlayerInteractEntityC2SPacket)packet) == PlayerInteractEntityC2SPacket.InteractType.ATTACK) {
-                ServerManager.mc.player.resetLastAttackedTicks();
-            } else if (packet instanceof UpdateSelectedSlotC2SPacket && this.lastSlot != (packet2 = (UpdateSelectedSlotC2SPacket)packet).getSelectedSlot()) {
-                this.lastSlot = packet2.getSelectedSlot();
-                ServerManager.mc.player.resetLastAttackedTicks();
-            }
-        }
-    }
-
     @EventListener
     public void onLeft(GameLeftEvent event) {
         this.currentSlot = -1;
@@ -87,10 +66,6 @@ implements Wrapper {
         if (packet instanceof UpdateSelectedSlotC2SPacket) {
             UpdateSelectedSlotC2SPacket packet2 = (UpdateSelectedSlotC2SPacket)packet;
             int packetSlot = packet2.getSelectedSlot();
-            if (AntiCheat.INSTANCE.noBadSlot.getValue() && packetSlot == this.currentSlot) {
-                event.cancel();
-                return;
-            }
             this.currentSlot = packetSlot;
         }
     }

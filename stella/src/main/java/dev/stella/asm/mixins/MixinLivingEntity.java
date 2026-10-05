@@ -32,8 +32,6 @@ package dev.stella.asm.mixins;
 import dev.stella.stella;
 import dev.stella.api.events.impl.LerpToEvent;
 import dev.stella.api.events.impl.SprintEvent;
-import dev.stella.core.impl.RotationManager;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.movement.EFly;
 import dev.stella.mod.modules.impl.movement.NoSlow;
 import dev.stella.mod.modules.impl.movement.Velocity;
@@ -93,39 +91,6 @@ extends Entity {
 
     @Shadow
     public abstract void remove(Entity.RemovalReason var1);
-
-    // Visualize - replace yaw in tick
-    @Redirect(method={"tick"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;getYaw()F"), require=0)
-    public float replaceYaw_tick(LivingEntity instance) {
-        if (AntiCheat.INSTANCE.visualize.getValue() && (Entity)LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player && RotationManager.INSTANCE.getRotation() != null) {
-            return RotationManager.INSTANCE.getRotation().yaw;
-        }
-        return instance.getYaw();
-    }
-
-    // StrafeFix - replace pitch in travel (Sn0w style)
-    @Redirect(method={"travel"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;getPitch()F"), require=0)
-    public float replacePitch(LivingEntity instance) {
-        // Sn0w StrafeFix: 强制使用客户端旋转俯仰角修复移动同步
-        if ((Entity)LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player) {
-            if (AntiCheat.INSTANCE.strafeFix.getValue() && RotationManager.INSTANCE.getRotation() != null) {
-                return RotationManager.INSTANCE.getRotation().pitch;
-            }
-        }
-        return instance.getPitch();
-    }
-
-    // StrafeFix - replace rotation vector in travel (Sn0w style)
-    @Redirect(method={"travel"}, at=@At(value="INVOKE", target="Lnet/minecraft/entity/LivingEntity;getRotationVector()Lnet/minecraft/util/math/Vec3d;"), require=0)
-    public Vec3d replaceVelocity(LivingEntity instance) {
-        // Sn0w StrafeFix: 强制使用客户端旋转向量修复移动方向
-        if ((Entity)LivingEntity.class.cast((Object)this) == MinecraftClient.getInstance().player) {
-            if (AntiCheat.INSTANCE.strafeFix.getValue() && RotationManager.INSTANCE.getRotation() != null) {
-                return RotationManager.INSTANCE.getRotationVector();
-            }
-        }
-        return instance.getRotationVector();
-    }
 
     @Inject(method={"getHandSwingDuration"}, at={@At(value="HEAD")}, cancellable=true)
     private void getArmSwingAnimationEnd(CallbackInfoReturnable<Integer> info) {

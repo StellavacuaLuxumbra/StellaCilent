@@ -14,7 +14,6 @@ import dev.stella.api.utils.Wrapper;
 import dev.stella.api.utils.world.BlockPosX;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.asm.accessors.IEntity;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.BlockPos;
@@ -27,7 +26,7 @@ implements Wrapper {
         if (ticks <= 0) {
             return entity.getPos();
         }
-        return PredictUtil.getPos(entity, AntiCheat.INSTANCE.maxMotionY.getValue(), AntiCheat.INSTANCE.predictTicks.getValueInt(), AntiCheat.INSTANCE.simulation.getValueInt(), AntiCheat.INSTANCE.step.getValue(), AntiCheat.INSTANCE.doubleStep.getValue(), AntiCheat.INSTANCE.jump.getValue(), AntiCheat.INSTANCE.inBlockPause.getValue());
+        return PredictUtil.getPos(entity, 0.34, 4, 5, false, false, false, true);
     }
 
     public static Vec3d getPos(PlayerEntity e, double maxMotionY, int ticks, int simulation, boolean step, boolean doubleStep, boolean jump, boolean inBlockPause) {
@@ -37,17 +36,11 @@ implements Wrapper {
         if (inBlockPause && BlockUtil.canCollide((Entity)e, e.getBoundingBox())) {
             return e.getPos();
         }
-        if (AntiCheat.INSTANCE.motion.is(AntiCheat.Motion.Position)) {
-            velocityX = e.getX() - e.prevX;
-            velocityY = e.getY() - e.prevY;
-            velocityZ = e.getZ() - e.prevZ;
-            if (velocityY > maxMotionY) {
-                velocityY = maxMotionY;
-            }
-        } else {
-            velocityX = e.getVelocity().x;
-            velocityY = e.getVelocity().y;
-            velocityZ = e.getVelocity().z;
+        velocityX = e.getX() - e.prevX;
+        velocityY = e.getY() - e.prevY;
+        velocityZ = e.getZ() - e.prevZ;
+        if (velocityY > maxMotionY) {
+            velocityY = maxMotionY;
         }
         double motionX = velocityX;
         double motionY = velocityY;

@@ -35,7 +35,6 @@ import dev.stella.api.utils.world.BlockPosX;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.mod.gui.clickgui.ClickGuiScreen;
 import dev.stella.mod.gui.PeekScreen;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.settings.enums.SwingSide;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.GameMenuScreen;
@@ -51,7 +50,6 @@ import net.minecraft.item.MaceItem;
 import net.minecraft.item.SwordItem;
 import net.minecraft.item.TridentItem;
 import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
 import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -140,8 +138,5 @@ implements Wrapper {
     }
 
     public static void syncInventory() {
-        if (AntiCheat.INSTANCE.closeScreen.getValue()) {
-            mc.getNetworkHandler().sendPacket((Packet)new CloseHandledScreenC2SPacket(EntityUtil.mc.player.currentScreenHandler.syncId));
-        }
     }
 }

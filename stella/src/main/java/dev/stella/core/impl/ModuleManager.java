@@ -97,7 +97,6 @@ public class ModuleManager
         this.addModule(new AutoLog());
         this.addModule(new AutoEZ());
         this.addModule(new SelfTrap());
-        this.addModule(new GrimSelfTrap());
         this.addModule(new Sorter());
         this.addModule(new AutoMend());
         this.addModule(new AutoPot());
@@ -129,7 +128,6 @@ public class ModuleManager
         this.addModule(new LavaFiller());
         this.addModule(new AntiPhase());
         this.addModule(new Clip());
-        this.addModule(new AntiCheat());
         this.addModule(new GAntiLag());
         this.addModule(new IRC());
         this.addModule(new ItemCounterHudModule("Items", "\u7269\u54c1", 100, 100));
@@ -234,7 +232,6 @@ public class ModuleManager
         this.addModule(new Strafe());
         this.addModule(new Step());
         this.addModule(new Surround());
-        this.addModule(new GrimSurround());
         this.addModule(new SuperVClip());
         this.addModule(new TotemParticle());
         this.addModule(new Velocity());
