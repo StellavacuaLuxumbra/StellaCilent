@@ -7,7 +7,6 @@ import dev.stella.api.utils.math.ExplosionUtil;
 import dev.stella.api.utils.player.InventoryUtil;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.settings.impl.*;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;

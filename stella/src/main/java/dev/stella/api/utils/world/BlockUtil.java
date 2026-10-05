@@ -56,7 +56,6 @@ import dev.stella.api.utils.Wrapper;
 import dev.stella.api.utils.math.MathUtil;
 import dev.stella.api.utils.player.EntityUtil;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.client.ClientSetting;
 import dev.stella.mod.modules.impl.combat.AutoCrystal;
 import dev.stella.mod.modules.impl.combat.AutoWeb;
@@ -395,94 +394,6 @@ implements Wrapper {
 
     public static boolean isStrictDirection(BlockPos pos, Direction side) {
         return true;
-    }
-
-    public static ArrayList<Direction> checkAxis(double diff, Direction negativeSide, Direction positiveSide, boolean vertical) {
-        boolean bl;
-        block10: {
-            block9: {
-                Box combined = BlockUtil.getCombinedBox(pos, (World)level);
-                Box eyePositions = new Box(player.getX(), player.getY() + 0.4, player.getZ(), player.getX(), player.getY() + 1.62, player.getZ()).expand(2.0E-4);
-                if (BlockUtil.isIntersected(eyePositions, combined)) {
-                    return true;
-                }
-                switch (direction) {
-                    default: {
-                        throw new MatchException(null, null);
-                    }
-                    case NORTH: {
-                        if (!(eyePositions.minZ > combined.minZ)) break;
-                        break block9;
-                    }
-                    case SOUTH: {
-                        if (!(eyePositions.maxZ < combined.maxZ)) break;
-                        break block9;
-                    }
-                    case EAST: {
-                        if (!(eyePositions.maxX < combined.maxX)) break;
-                        break block9;
-                    }
-                    case WEST: {
-                        if (!(eyePositions.minX > combined.minX)) break;
-                        break block9;
-                    }
-                    case UP: {
-                        if (!(eyePositions.maxY < combined.maxY)) break;
-                        break block9;
-                    }
-                    case DOWN: {
-                        if (eyePositions.minY > combined.minY) break block9;
-                    }
-                }
-                bl = true;
-                break block10;
-            }
-            bl = false;
-        }
-        return bl;
-    }
-
-    private static Box getCombinedBox(BlockPos pos, World level) {
-        VoxelShape shape = level.getBlockState(pos).getCollisionShape((BlockView)level, pos).offset((double)pos.getX(), (double)pos.getY(), (double)pos.getZ());
-        Box combined = new Box(pos);
-        for (Box box : shape.getBoundingBoxes()) {
-            double minX = Math.max(box.minX, combined.minX);
-            double minY = Math.max(box.minY, combined.minY);
-            double minZ = Math.max(box.minZ, combined.minZ);
-            double maxX = Math.min(box.maxX, combined.maxX);
-            double maxY = Math.min(box.maxY, combined.maxY);
-            double maxZ = Math.min(box.maxZ, combined.maxZ);
-            combined = new Box(minX, minY, minZ, maxX, maxY, maxZ);
-        }
-        return combined;
-    }
-
-    private static boolean isIntersected(Box bb, Box other) {
-        return other.maxX - 1.0E-7 > bb.minX && other.minX + 1.0E-7 < bb.maxX && other.maxY - 1.0E-7 > bb.minY && other.minY + 1.0E-7 < bb.maxY && other.maxZ - 1.0E-7 > bb.minZ && other.minZ + 1.0E-7 < bb.maxZ;
-    }
-
-    public static ArrayList<Direction> checkAxis(double diff, Direction negativeSide, Direction positiveSide, boolean vertical) {
-        ArrayList<Direction> valid = new ArrayList<Direction>();
-        if (vertical) {
-            if (diff < -0.5) {
-                valid.add(negativeSide);
-            }
-            if (AntiCheat.INSTANCE.upDirectionLimit.getValue()) {
-                if (diff > 0.5) {
-                    valid.add(positiveSide);
-                }
-            } else if (diff > -0.5) {
-                valid.add(positiveSide);
-            }
-        } else {
-            if (diff < -0.5) {
-                valid.add(negativeSide);
-            }
-            if (diff > 0.5) {
-                valid.add(positiveSide);
-            }
-        }
-        return valid;
     }
 
     public static ArrayList<BlockEntity> getTileEntities() {

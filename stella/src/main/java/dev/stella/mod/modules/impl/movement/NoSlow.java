@@ -61,15 +61,12 @@ import net.minecraft.util.math.Direction;
 public class NoSlow
 extends Module {
     public static NoSlow INSTANCE;
-    final Queue<ClickSlotC2SPacket> storedClicks = new LinkedList<ClickSlotC2SPacket>();
-    final AtomicBoolean pause = new AtomicBoolean();
     private final EnumSetting<Mode> mode = this.add(new EnumSetting<Mode>("Mode", Mode.Vanilla));
     private final BooleanSetting soulSand = this.add(new BooleanSetting("SoulSand", true));
     private final BooleanSetting sneak = this.add(new BooleanSetting("Sneak", false));
     private final BooleanSetting climb = this.add(new BooleanSetting("Climb", false));
     private final BooleanSetting gui = this.add(new BooleanSetting("Gui", true));
     private final BooleanSetting allowSneak = this.add(new BooleanSetting("AllowSneak", false, this.gui::getValue));
-    private final EnumSetting<Bypass> clickBypass = this.add(new EnumSetting<Bypass>("GuiMoveBypass", Bypass.None));
     boolean using = false;
     int delay = 0;
 
@@ -184,53 +181,8 @@ extends Module {
             mc.getNetworkHandler().sendPacket((Packet)new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.DROP_ITEM, BlockPos.ORIGIN, Direction.DOWN));
             return;
         }
-        if (!MovementUtil.isMoving() || this.pause.get()) {
+        if (!MovementUtil.isMoving()) {
             return;
-        }
-        packet2 = e.getPacket();
-        if (packet2 instanceof ClickSlotC2SPacket) {
-            ClickSlotC2SPacket click = (ClickSlotC2SPacket)packet2;
-            switch (this.clickBypass.getValue().ordinal()) {
-                case 3: {
-                    if (click.getActionType() == SlotActionType.PICKUP || click.getActionType() == SlotActionType.PICKUP_ALL) break;
-                    mc.getNetworkHandler().sendPacket((Packet)new CloseHandledScreenC2SPacket(0));
-                    break;
-                }
-                case 1: {
-                    if (!NoSlow.mc.player.isOnGround() || NoSlow.mc.world.getBlockCollisions((Entity)NoSlow.mc.player, NoSlow.mc.player.getBoundingBox().offset(0.0, 0.0656, 0.0)).iterator().hasNext()) break;
-                    if (NoSlow.mc.player.isSprinting()) {
-                        mc.getNetworkHandler().sendPacket((Packet)new ClientCommandC2SPacket((Entity)NoSlow.mc.player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
-                    }
-                    mc.getNetworkHandler().sendPacket((Packet)new PlayerMoveC2SPacket.PositionAndOnGround(NoSlow.mc.player.getX(), NoSlow.mc.player.getY() + 0.0656, NoSlow.mc.player.getZ(), false));
-                    break;
-                }
-                case 2: {
-                    if (!NoSlow.mc.player.isOnGround() || NoSlow.mc.world.getBlockCollisions((Entity)NoSlow.mc.player, NoSlow.mc.player.getBoundingBox().offset(0.0, 2.71875E-7, 0.0)).iterator().hasNext()) break;
-                    if (NoSlow.mc.player.isSprinting()) {
-                        mc.getNetworkHandler().sendPacket((Packet)new ClientCommandC2SPacket((Entity)NoSlow.mc.player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
-                    }
-                    mc.getNetworkHandler().sendPacket((Packet)new PlayerMoveC2SPacket.PositionAndOnGround(NoSlow.mc.player.getX(), NoSlow.mc.player.getY() + 2.71875E-7, NoSlow.mc.player.getZ(), false));
-                    break;
-                }
-                case 4: {
-                    this.storedClicks.add(click);
-                    e.cancel();
-                }
-            }
-        }
-        if (e.getPacket() instanceof CloseHandledScreenC2SPacket && this.clickBypass.is(Bypass.Delay)) {
-            this.pause.set(true);
-            while (!this.storedClicks.isEmpty()) {
-                mc.getNetworkHandler().sendPacket((Packet)this.storedClicks.poll());
-            }
-            this.pause.set(false);
-        }
-    }
-
-    @EventListener
-    public void onPacketSendPost(PacketEvent.Sent e) {
-        if (e.getPacket() instanceof ClickSlotC2SPacket && NoSlow.mc.player.isSprinting() && this.clickBypass.is(Bypass.NCP)) {
-            mc.getNetworkHandler().sendPacket((Packet)new ClientCommandC2SPacket((Entity)NoSlow.mc.player, ClientCommandC2SPacket.Mode.START_SPRINTING));
         }
     }
 
@@ -253,15 +205,6 @@ extends Module {
         GrimPacket,
         Drop,
         None;
-
-    }
-
-    private static enum Bypass {
-        None,
-        NCP,
-        NCP2,
-        Grim,
-        Delay;
 
     }
 }

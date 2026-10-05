@@ -38,7 +38,7 @@ import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.core.impl.CommandManager;
 import dev.stella.core.impl.RotationManager;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
+import dev.stella.mod.modules.settings.enums.SwingSide;
 import dev.stella.mod.modules.impl.exploit.Blink;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
 import dev.stella.mod.modules.settings.impl.EnumSetting;
@@ -70,7 +70,7 @@ import net.minecraft.util.math.Vec3d;
 public class Burrow
 extends Module {
     public static Burrow INSTANCE;
-    private final EnumSetting<RotateMode> rotate = this.add(new EnumSetting<RotateMode>("RotateMode", RotateMode.Bypass));
+    private final EnumSetting<RotateMode> rotate = this.add(new EnumSetting<RotateMode>("RotateMode", RotateMode.Normal));
     private final EnumSetting<LagBackMode> lagMode = this.add(new EnumSetting<LagBackMode>("LagMode", LagBackMode.TrollHack));
     private final EnumSetting<LagBackMode> aboveLagMode = this.add(new EnumSetting<LagBackMode>("MoveLagMode", LagBackMode.Smart));
     private final List<BlockPos> placePos = new ArrayList<BlockPos>();
@@ -162,7 +162,7 @@ extends Module {
             }
             this.progress = 0;
             this.placePos.clear();
-            double offset = this.single.getValue() ? 0.0 : AntiCheat.getOffset();
+            double offset = this.single.getValue() ? 0.0 : 0.3;
             BlockPosX pos1 = new BlockPosX(Burrow.mc.player.getX() + offset, Burrow.mc.player.getY() + 0.5, Burrow.mc.player.getZ() + offset);
             BlockPosX pos2 = new BlockPosX(Burrow.mc.player.getX() - offset, Burrow.mc.player.getY() + 0.5, Burrow.mc.player.getZ() + offset);
             BlockPosX pos3 = new BlockPosX(Burrow.mc.player.getX() + offset, Burrow.mc.player.getY() + 0.5, Burrow.mc.player.getZ() - offset);
@@ -219,14 +219,6 @@ extends Module {
             }
             this.timer.reset();
             this.doSwap(block);
-            if (this.rotate.getValue() == RotateMode.Bypass) {
-                if (above) {
-                    float[] angle = RotationManager.getRotation(this.currentPos.add(0.0, (double)Burrow.mc.player.getEyeHeight(Burrow.mc.player.getPose()), 0.0), Burrow.mc.player.getPos());
-                    stella.ROTATION.snapAt(angle[0], angle[1]);
-                } else {
-                    stella.ROTATION.snapAt(stella.ROTATION.rotationYaw, 90.0f);
-                }
-            }
             this.placeBlock(playerPos, rotate);
             this.placeBlock(pos1, rotate);
             this.placeBlock(pos2, rotate);
@@ -420,7 +412,7 @@ extends Module {
             float[] angle = RotationManager.getRotation(this.currentPos.add(0.0, (double)Burrow.mc.player.getEyeHeight(Burrow.mc.player.getPose()), 0.0), directionVec);
             stella.ROTATION.snapAt(angle[0], angle[1]);
         }
-        EntityUtil.swingHand(hand, AntiCheat.INSTANCE.interactSwing.getValue());
+        EntityUtil.swingHand(hand, SwingSide.All);
         BlockHitResult result = new BlockHitResult(directionVec, side, pos, false);
         if (packet) {
             Module.sendSequencedPacket(id -> new PlayerInteractBlockC2SPacket(hand, result, id));
@@ -566,7 +558,6 @@ extends Module {
     }
 
     private static enum RotateMode {
-        Bypass,
         Normal,
         None;
 

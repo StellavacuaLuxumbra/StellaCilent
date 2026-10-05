@@ -19,7 +19,7 @@ import dev.stella.api.events.impl.UpdateRotateEvent;
 import dev.stella.api.utils.path.BaritoneUtil;
 import dev.stella.api.utils.player.MovementUtil;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
+import dev.stella.mod.modules.impl.movement.MovementSync;
 import dev.stella.mod.modules.impl.player.Freecam;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
 import dev.stella.mod.modules.settings.impl.EnumSetting;
@@ -124,7 +124,7 @@ extends Module {
         if (!(Sprint.mc.player.getHungerManager().getFoodLevel() <= 6 && !Sprint.mc.player.isCreative() || !MovementUtil.isMoving() || this.pause || Sprint.mc.player.isSneaking() && this.sneakingPause.getValue() || stella.PLAYER.isInWeb((PlayerEntity)Sprint.mc.player) && this.inWebPause.getValue() || Sprint.mc.player.isUsingItem() && this.usingPause.getValue() || Sprint.mc.player.isRiding() || Sprint.mc.player.hasStatusEffect(StatusEffects.BLINDNESS) && this.blindnessPause.getValue())) {
             switch (this.mode.getValue().ordinal()) {
                 case 1: {
-                    if (AntiCheat.INSTANCE.movementSync()) {
+                    if (MovementSync.INSTANCE.isOn()) {
                         return Sprint.mc.player.input.movementForward > 0.0f;
                     }
                     return HoleSnap.INSTANCE.isOn() || Sprint.mc.options.forwardKey.isPressed() && MathHelper.angleBetween((float)Sprint.mc.player.getYaw(), (float)stella.ROTATION.rotationYaw) < 40.0f;
@@ -140,7 +140,7 @@ extends Module {
                     }
                 }
                 case 3: {
-                    if (AntiCheat.INSTANCE.movementSync()) {
+                    if (MovementSync.INSTANCE.isOn()) {
                         return Sprint.mc.player.input.movementForward > 0.0f;
                     }
                     return HoleSnap.INSTANCE.isOn() || MathHelper.angleBetween((float)Sprint.getSprintYaw(Sprint.mc.player.getYaw()), (float)stella.ROTATION.rotationYaw) < 40.0f;

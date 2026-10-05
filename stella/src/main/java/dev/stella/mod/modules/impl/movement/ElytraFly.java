@@ -42,7 +42,7 @@ import dev.stella.api.utils.player.PlayerUtils;
 import dev.stella.asm.accessors.IFireworkRocketEntity;
 import dev.stella.asm.accessors.ILivingEntity;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
+import dev.stella.mod.modules.impl.movement.MovementSync;
 import dev.stella.mod.modules.settings.impl.BindSetting;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
 import dev.stella.mod.modules.settings.impl.EnumSetting;
@@ -455,7 +455,7 @@ extends Module {
         if (ElytraFly.nullCheck()) {
             return;
         }
-        if (!AntiCheat.INSTANCE.movementSync()) {
+        if (!MovementSync.INSTANCE.isOn()) {
             if (this.mode.is(Mode.Bounce) && this.hasElytra) {
                 if (event.isPre()) {
                     this.prev = true;

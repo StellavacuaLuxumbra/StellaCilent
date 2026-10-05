@@ -9,7 +9,6 @@ import dev.stella.api.utils.player.InventoryUtil;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.core.impl.RotationManager;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.render.PlaceRender;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
 import dev.stella.mod.modules.settings.impl.SliderSetting;

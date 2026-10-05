@@ -26,7 +26,7 @@ import dev.stella.api.utils.player.InventoryUtil;
 import dev.stella.api.utils.world.BlockPosX;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
+import dev.stella.mod.modules.settings.enums.SwingSide;
 import dev.stella.mod.modules.impl.exploit.Blink;
 import dev.stella.mod.modules.impl.movement.ElytraFly;
 import dev.stella.mod.modules.impl.movement.Velocity;
@@ -248,7 +248,7 @@ extends Module {
             return false;
         }
         this.doSwap(slot);
-        EntityUtil.swingHand(Hand.MAIN_HAND, AntiCheat.INSTANCE.interactSwing.getValue());
+        EntityUtil.swingHand(Hand.MAIN_HAND, SwingSide.All);
         BlockHitResult result = new BlockHitResult(directionVec, side, pos, false);
         Module.sendSequencedPacket(id -> new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, result, id));
         if (rotate && !this.shouldYawStep()) {

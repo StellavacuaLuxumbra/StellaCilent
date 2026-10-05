@@ -32,7 +32,6 @@ import dev.stella.api.utils.player.InventoryUtil;
 import dev.stella.api.utils.world.BlockPosX;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.exploit.Blink;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
 import dev.stella.mod.modules.settings.impl.SliderSetting;
@@ -135,7 +134,7 @@ extends Module {
                 if (this.fill.getValue() && itemFrameEntity != null && itemFrameEntity.getHeldItemStack().isEmpty()) {
                     int block3;
                     Vec3d hitVec = MathUtil.getClosestPointToBox(AntiPhase.mc.player.getEyePos(), itemFrameEntity.getBoundingBox());
-                    if (AntiPhase.mc.player.getEyePos().distanceTo(hitVec) <= AntiCheat.INSTANCE.ieRange.getValue() && (block3 = this.getObsidian()) != -1) {
+                    if (AntiPhase.mc.player.getEyePos().distanceTo(hitVec) <= 3.0 && (block3 = this.getObsidian()) != -1) {
                         int old = AntiPhase.mc.player.getInventory().selectedSlot;
                         this.doSwap(block3);
                         if (this.rotate.getValue()) {

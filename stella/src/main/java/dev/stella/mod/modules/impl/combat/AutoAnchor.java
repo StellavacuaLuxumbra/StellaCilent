@@ -45,7 +45,6 @@ import dev.stella.mod.modules.Module;
 import dev.stella.mod.modules.impl.exploit.Blink;
 import dev.stella.mod.modules.impl.movement.ElytraFly;
 import dev.stella.mod.modules.impl.movement.Velocity;
-import dev.stella.mod.modules.impl.player.AirPlace;
 import dev.stella.mod.modules.settings.enums.SwingSide;
 import dev.stella.mod.modules.settings.enums.Timing;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
@@ -61,7 +60,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -579,16 +577,9 @@ extends Module {
             return;
         }
         this.doSwap(slot);
-        boolean bypass = AirPlace.INSTANCE.grimBypass.getValue();
-        if (bypass) {
-            mc.getNetworkHandler().sendPacket((Packet)new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND, new BlockPos(0, 0, 0), Direction.DOWN));
-        }
         EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
         BlockHitResult result = new BlockHitResult(directionVec, side, pos, false);
-        Module.sendSequencedPacket(id -> new PlayerInteractBlockC2SPacket(bypass ? Hand.OFF_HAND : Hand.MAIN_HAND, result, id));
-        if (bypass) {
-            mc.getNetworkHandler().sendPacket((Packet)new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND, new BlockPos(0, 0, 0), Direction.DOWN));
-        }
+        Module.sendSequencedPacket(id -> new PlayerInteractBlockC2SPacket(Hand.MAIN_HAND, result, id));
         if (this.inventorySwap.getValue()) {
             this.doSwap(slot);
         }

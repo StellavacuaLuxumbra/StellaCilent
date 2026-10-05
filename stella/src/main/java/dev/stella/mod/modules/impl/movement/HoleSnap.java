@@ -33,7 +33,7 @@ import dev.stella.api.events.impl.UpdateEvent;
 import dev.stella.api.utils.player.MovementUtil;
 import dev.stella.api.utils.render.ColorUtil;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
+import dev.stella.mod.modules.impl.movement.MovementSync;
 import dev.stella.mod.modules.impl.player.Freecam;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
 import dev.stella.mod.modules.settings.impl.ColorSetting;
@@ -175,7 +175,7 @@ extends Module {
         if (!this.grim.getValue()) {
             return;
         }
-        if (!AntiCheat.INSTANCE.movementSync()) {
+        if (!MovementSync.INSTANCE.isOn()) {
             this.sendMessage("\u00a74HoleSnap require MovementSync.");
             this.disable();
             return;

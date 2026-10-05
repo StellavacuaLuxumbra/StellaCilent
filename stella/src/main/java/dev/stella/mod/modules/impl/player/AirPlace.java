@@ -31,7 +31,6 @@ public class AirPlace
 extends Module {
     public static AirPlace INSTANCE;
     public final BooleanSetting module = this.add(new BooleanSetting("Module", true));
-    public final BooleanSetting grimBypass = this.add(new BooleanSetting("GrimBypass", false));
     public final BooleanSetting crossHair = this.add(new BooleanSetting("Crosshair", true).setParent());
     private final SliderSetting range = this.add(new SliderSetting("Range", 5.0, 0.0, 6.0, this.crossHair::isOpen));
     private final ColorSetting fill = this.add(new ColorSetting("Fill", new Color(255, 0, 0, 50), this.crossHair::isOpen).injectBoolean(true));

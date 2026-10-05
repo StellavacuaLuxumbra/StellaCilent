@@ -12,6 +12,7 @@ import dev.stella.*;
 import dev.stella.api.utils.player.*;
 import dev.stella.mod.modules.settings.enums.*;
 import dev.stella.mod.modules.impl.client.*;
+import dev.stella.mod.modules.settings.enums.SwingSide;
 import net.minecraft.*;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -637,7 +638,7 @@ public class PistonCrystal extends Module
         final Direction finalSide = side;
         mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.START_DESTROY_BLOCK, pos, finalSide));
         mc.getNetworkHandler().sendPacket(new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK, pos, finalSide));
-        EntityUtil.swingHand(Hand.MAIN_HAND, AntiCheat.INSTANCE.interactSwing.getValue());
+        EntityUtil.swingHand(Hand.MAIN_HAND, SwingSide.All);
         if (this.cleanerRotate.getValue()) {
             stella.ROTATION.snapBack();
         }

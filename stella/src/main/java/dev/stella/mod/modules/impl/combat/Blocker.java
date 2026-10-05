@@ -20,7 +20,6 @@ import dev.stella.api.utils.world.BlockPosX;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.core.impl.ThreadManager;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.exploit.Blink;
 import dev.stella.mod.modules.settings.impl.BooleanSetting;
 import dev.stella.mod.modules.settings.impl.EnumSetting;
@@ -102,7 +101,7 @@ extends Module {
             this.blockerPos.clear();
         }
         this.playerBP = EntityUtil.getPlayerPos(true);
-        double[] offset = new double[]{AntiCheat.getOffset(), -AntiCheat.getOffset(), 0.0};
+        double[] offset = new double[]{0.3, -0.3, 0.0};
         if (this.bevelCev.getValue()) {
             for (Direction i : Direction.values()) {
                 if (i == Direction.DOWN || this.isBedrock(this.playerBP.offset(i).up()) || !this.crystalHere(blockerPos = this.playerBP.offset(i).up(2)) || this.placePos.contains(blockerPos)) continue;

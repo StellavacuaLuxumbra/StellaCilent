@@ -55,7 +55,6 @@ import dev.stella.api.utils.render.Render3DUtil;
 import dev.stella.api.utils.world.BlockUtil;
 import dev.stella.asm.accessors.IPlayerMoveC2SPacket;
 import dev.stella.mod.modules.Module;
-import dev.stella.mod.modules.impl.client.AntiCheat;
 import dev.stella.mod.modules.impl.client.ClientSetting;
 import dev.stella.mod.modules.impl.combat.AutoAnchor;
 import dev.stella.mod.modules.impl.combat.AutoCrystal;
@@ -853,7 +852,7 @@ public class PacketMine
 
     boolean noEntity(BlockPos pos) {
         for (Entity entity : BlockUtil.getEntities(new Box(pos))) {
-            if (entity instanceof ItemEntity || entity instanceof ArmorStandEntity && AntiCheat.INSTANCE.ignoreArmorStand.getValue()) continue;
+            if (entity instanceof ItemEntity) continue;
             return false;
         }
         return true;

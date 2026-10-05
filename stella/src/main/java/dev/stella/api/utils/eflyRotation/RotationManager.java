@@ -10,7 +10,7 @@ import dev.stella.api.events.impl.TickEvent;
 import dev.stella.api.utils.Wrapper;
 import dev.stella.api.utils.path.BaritoneUtil;
 import dev.stella.asm.accessors.IClientPlayerEntity;
-import dev.stella.mod.modules.impl.client.AntiCheat;
+import dev.stella.mod.modules.impl.movement.MovementSync;
 import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -83,7 +83,7 @@ public class RotationManager implements Wrapper {
     // 侧移修复 (Strafe Fix)：确保你抬头时，按W依然是向前飞
     @EventListener
     public void onKeyInput(KeyboardInputEvent event) {
-        if (rotation != null && mc.player != null && AntiCheat.INSTANCE.movementSync()) {
+        if (rotation != null && mc.player != null && MovementSync.INSTANCE.isOn()) {
             if (BaritoneUtil.isActive()) return;
 
             float forward = mc.player.input.movementForward;
