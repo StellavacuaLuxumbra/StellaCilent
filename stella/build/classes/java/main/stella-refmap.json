@@ -368,9 +368,6 @@
       "update": "Lnet/minecraft/class_765;method_3313(F)V"
     },
     "dev/stella/asm/mixins/MixinLivingEntity": {
-      "Lnet/minecraft/entity/LivingEntity;getPitch()F": "Lnet/minecraft/class_1309;method_36455()F",
-      "Lnet/minecraft/entity/LivingEntity;getRotationVector()Lnet/minecraft/util/math/Vec3d;": "Lnet/minecraft/class_1309;method_5720()Lnet/minecraft/class_243;",
-      "Lnet/minecraft/entity/LivingEntity;getYaw()F": "Lnet/minecraft/class_1309;method_36454()F",
       "Lnet/minecraft/entity/LivingEntity;hasStatusEffect(Lnet/minecraft/registry/entry/RegistryEntry;)Z": "Lnet/minecraft/class_1309;method_6059(Lnet/minecraft/class_6880;)Z",
       "Lnet/minecraft/entity/LivingEntity;isClimbing()Z": "Lnet/minecraft/class_1309;method_6101()Z",
       "applyClimbingSpeed": "Lnet/minecraft/class_1309;method_18801(Lnet/minecraft/class_243;)Lnet/minecraft/class_243;",
@@ -832,9 +829,6 @@
         "update": "Lnet/minecraft/class_765;method_3313(F)V"
       },
       "dev/stella/asm/mixins/MixinLivingEntity": {
-        "Lnet/minecraft/entity/LivingEntity;getPitch()F": "Lnet/minecraft/class_1309;method_36455()F",
-        "Lnet/minecraft/entity/LivingEntity;getRotationVector()Lnet/minecraft/util/math/Vec3d;": "Lnet/minecraft/class_1309;method_5720()Lnet/minecraft/class_243;",
-        "Lnet/minecraft/entity/LivingEntity;getYaw()F": "Lnet/minecraft/class_1309;method_36454()F",
         "Lnet/minecraft/entity/LivingEntity;hasStatusEffect(Lnet/minecraft/registry/entry/RegistryEntry;)Z": "Lnet/minecraft/class_1309;method_6059(Lnet/minecraft/class_6880;)Z",
         "Lnet/minecraft/entity/LivingEntity;isClimbing()Z": "Lnet/minecraft/class_1309;method_6101()Z",
         "applyClimbingSpeed": "Lnet/minecraft/class_1309;method_18801(Lnet/minecraft/class_243;)Lnet/minecraft/class_243;",
