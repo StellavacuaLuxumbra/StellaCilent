@@ -57,7 +57,7 @@ public class MixinClientPlayerInteractionManager {
         return InteractTweaks.INSTANCE.noReset() ? this.selectedStack : stack;
     }
 
-    @ModifyConstant(method={"updateBlockBreakingProgress"}, constant={@Constant(intValue=5)})
+    @ModifyConstant(method={"updateBlockBreakingProgress"}, constant={@Constant(intValue=5)}, require=0)
     private int MiningCooldownFix(int value) {
         return InteractTweaks.INSTANCE.noDelay() ? 0 : value;
     }
