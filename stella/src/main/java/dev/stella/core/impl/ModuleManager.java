@@ -91,6 +91,8 @@ public class ModuleManager
         this.addModule(new Aura());
         this.addModule(new PushCleaner());
         this.addModule(new AutoAnchor());
+        this.addModule(new TpCrystalAura());
+        this.addModule(new TpAnchorAura());
         this.addModule(new PhaseESP());
         this.addModule(new AutoArmor());
         this.addModule(new Breaker());

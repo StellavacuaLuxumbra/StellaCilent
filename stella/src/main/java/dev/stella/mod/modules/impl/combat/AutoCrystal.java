@@ -146,14 +146,6 @@ extends Module {
     private final BooleanSetting interactOnRender = this.add(new BooleanSetting("InteractOnRender", false, () -> this.page.getValue() == Page.General));
     private final SliderSetting wallRange = this.add(new SliderSetting("WallRange", 6.0, 0.0, 6.0, () -> this.page.getValue() == Page.General).setSuffix("m"));
     private final EnumSetting<SwingSide> swingMode = this.add(new EnumSetting<SwingSide>("Swing", SwingSide.All, () -> this.page.getValue() == Page.General));
-    private final BooleanSetting tpAssist = this.add(new BooleanSetting("TpAssist", false, () -> this.page.getValue() == Page.Tp));
-    private final SliderSetting tpRange = this.add(new SliderSetting("TpRange", 16.0, 4.0, 64.0, 0.5, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()).setSuffix("m"));
-    private final BooleanSetting tpBack = this.add(new BooleanSetting("TpBack", true, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
-    private final EnumSetting<TPUtils.TeleportType> tpMode = this.add(new EnumSetting<TPUtils.TeleportType>("TpMode", TPUtils.TeleportType.New, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
-    private final BooleanSetting rush = this.add(new BooleanSetting("Rush", true, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
-    private final SliderSetting rushTime = this.add(new SliderSetting("RushTime", 500, 0, 5000, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue() && this.rush.getValue()).setSuffix("ms"));
-    private final BooleanSetting tpCombo = this.add(new BooleanSetting("Combo", true, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()));
-    private final SliderSetting tpInterval = this.add(new SliderSetting("TpInterval", 0, 0, 500, () -> this.page.getValue() == Page.Tp && this.tpAssist.getValue()).setSuffix("ms"));
     private final ColorSetting text = this.add(new ColorSetting("Text", new Color(-1), () -> this.page.getValue() == Page.Render).injectBoolean(true));
     private final EnumSetting<TargetESP> mode = this.add(new EnumSetting<TargetESP>("TargetESP", TargetESP.Fill, () -> this.page.getValue() == Page.Render));
     private final SliderSetting animationTime = this.add(new SliderSetting("AnimationTime", 200.0, 0.0, 2000.0, 1.0, () -> this.page.getValue() == Page.Render));
