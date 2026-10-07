@@ -37,7 +37,6 @@ import dev.stella.api.events.impl.PacketEvent;
 import dev.stella.api.events.impl.Render3DEvent;
 import dev.stella.api.events.impl.RotationEvent;
 import dev.stella.api.utils.combat.CombatUtil;
-import dev.stella.api.utils.entity.CopyPlayerEntity;
 import dev.stella.api.utils.entity.PlayerEntityPredict;
 import dev.stella.api.utils.math.AnimateUtil;
 import dev.stella.api.utils.math.Animation;
@@ -46,8 +45,6 @@ import dev.stella.api.utils.math.Easing;
 import dev.stella.api.utils.math.ExplosionUtil;
 import dev.stella.api.utils.math.MathUtil;
 import dev.stella.api.utils.math.Timer;
-import dev.stella.api.utils.path.TPUtils;
-import dev.stella.api.utils.path.TpUtil;
 import dev.stella.api.utils.player.EntityUtil;
 import dev.stella.api.utils.player.InventoryUtil;
 import dev.stella.api.utils.render.ColorUtil;
@@ -72,8 +69,6 @@ import dev.stella.mod.modules.settings.impl.SliderSetting;
 import java.awt.Color;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
@@ -218,12 +213,6 @@ extends Module {
     private Vec3d placeVec3d;
     private Vec3d curVec3d;
     int lastSlot;
-    private final Timer rushTimer = new Timer();
-    private final Timer tpTimer = new Timer();
-    private boolean rushForce;
-    private Set<Integer> lastSeen = new HashSet<>();
-    private CopyPlayerEntity tpSelf;
-    private boolean tpActive;
     BlockPos tempBasePos;
     BlockPos basePos;
 
@@ -279,7 +268,6 @@ extends Module {
         if (this.timing.is(Timing.Pre) && event.isPost() || this.timing.is(Timing.Post) && event.isPre()) {
             return;
         }
-        this.checkRush();
         if (!CombatManager.allows(this)) {
             this.crystalPos = null;
             this.tempPos = null;
@@ -333,112 +321,8 @@ extends Module {
         }
     }
 
-    private boolean tpOn() {
-        return this.tpAssist.getValue() && AutoCrystal.mc.player != null && AutoCrystal.mc.world != null;
-    }
-
-    /** Stella：检测敌人新进入 TpRange 打轰炸标记（Rush）。 */
-    private void checkRush() {
-        if (!this.rush.getValue() || !this.tpOn()) {
-            this.lastSeen = new HashSet<>();
-            return;
-        }
-        HashSet<Integer> now = new HashSet<Integer>();
-        for (PlayerEntity target : CombatUtil.getEnemies(this.effTargetRange())) {
-            int id = target.getId();
-            now.add(id);
-            if (!this.lastSeen.contains(id)) {
-                this.rushTimer.reset();
-                this.rushForce = true;
-            }
-        }
-        this.lastSeen = now;
-    }
-
-    private boolean rushActive() {
-        return this.rush.getValue() && this.tpOn() && !this.rushTimer.passedMs((long)this.rushTime.getValue());
-    }
-
-    /** Stella：以 TP 落点为自身位置的伤害预测（TP 期间服务端视角在落点）。 */
-    private PlayerEntityPredict selfAt(Vec3d tpVec) {
-        if (this.tpSelf == null) {
-            this.tpSelf = new CopyPlayerEntity(AutoCrystal.mc.player, true);
-        }
-        this.tpSelf.setPosition(tpVec.x, tpVec.y, tpVec.z);
-        return new PlayerEntityPredict(this.tpSelf, this.tpSelf);
-    }
-
-    private double effBreakRange() {
-        return this.tpOn() ? Math.max(this.breakRange.getValue(), this.tpRange.getValue()) : this.breakRange.getValue();
-    }
-
-    private double effPlaceRange() {
-        return this.tpOn() ? Math.max(this.placeRange.getValue(), this.tpRange.getValue()) : this.placeRange.getValue();
-    }
-
-    private double effTargetRange() {
-        return this.tpOn() ? Math.max(this.targetRange.getValue(), this.tpRange.getValue()) : this.targetRange.getValue();
-    }
-
     private float scanRange() {
-        return (float)(this.tpOn() ? Math.max(this.effBreakRange(), this.effPlaceRange()) : (double)this.breakRange.getValue()) + 1.5f;
-    }
-
-    private Vec3d findTpVec(Vec3d target, double reach) {
-        Vec3d from = AutoCrystal.mc.player.getPos();
-        double dx = from.x - target.x;
-        double dz = from.z - target.z;
-        double horiz = Math.sqrt(dx * dx + dz * dz);
-        if (horiz < 1.0E-3) {
-            return null;
-        }
-        double d = Math.max(1.0, Math.min(reach - 1.5, horiz - 1.0));
-        double nx = dx / horiz;
-        double nz = dz / horiz;
-        for (double yOff : new double[]{0.0, -1.0, 1.0, -2.0, 2.0}) {
-            Vec3d cand = new Vec3d(target.x + nx * d, Math.floor(target.y) + yOff, target.z + nz * d);
-            if (cand.distanceTo(from) <= this.tpRange.getValue() && TpUtil.isBlinkVec(cand)) {
-                return cand;
-            }
-        }
-        return null;
-    }
-
-    private void runWithTp(Vec3d target, double reach, Runnable action) {
-        if (this.tpActive || !this.tpOn()) {
-            action.run();
-            return;
-        }
-        if (reach <= 0.0) {
-            return;
-        }
-        double dist = AutoCrystal.mc.player.getEyePos().distanceTo(target);
-        if (dist <= reach) {
-            action.run();
-            return;
-        }
-        if (dist > this.tpRange.getValue()) {
-            return;
-        }
-        Vec3d tpVec = this.findTpVec(target, reach);
-        if (tpVec == null) {
-            return;
-        }
-        if (this.tpInterval.getValue() > 0.0 && !this.tpTimer.passedMs((long)this.tpInterval.getValue())) {
-            return;
-        }
-        this.tpActive = true;
-        try {
-            if (this.tpBack.getValue()) {
-                TPUtils.teleportWithBack(tpVec, this.tpMode.getValue(), action);
-            } else {
-                TPUtils.newTeleport(tpVec);
-                action.run();
-            }
-        } finally {
-            this.tpActive = false;
-        }
-        this.tpTimer.reset();
+        return (float)this.breakRange.getValue() + 1.5f;
     }
 
     private void doInteract() {
@@ -473,13 +357,12 @@ extends Module {
     }
 
     public Vec3d getAttackVec(Vec3d feetPos) {
-        return MathUtil.getPointToBoxFromBottom(AutoCrystal.mc.player.getEyePos(), feetPos, this.effBreakRange(), 2.0, this.attackVecStep.getValue());
+        return MathUtil.getPointToBoxFromBottom(AutoCrystal.mc.player.getEyePos(), feetPos, this.breakRange.getValue(), 2.0, this.attackVecStep.getValue());
     }
 
     private void updateCrystalPos() {
-        if (this.rushForce || this.calcDelay.passedMs(this.updateDelay.getValue())) {
+        if (this.calcDelay.passedMs(this.updateDelay.getValue())) {
             this.calcDelay.reset();
-            this.rushForce = false;
             this.calcCrystalPos();
             CombatUtil.modifyPos = null;
             CombatUtil.modifyBlockState = null;
@@ -525,7 +408,7 @@ extends Module {
         this.tempBasePos = null;
         float baseDamage = 0.0f;
         ArrayList<PlayerEntityPredict> list = new ArrayList<PlayerEntityPredict>();
-        for (PlayerEntity target : CombatUtil.getEnemies((float)this.effTargetRange())) {
+        for (PlayerEntity target : CombatUtil.getEnemies((float)this.targetRange.getValue())) {
             if (target.hurtTime > this.hurtTime.getValueInt()) continue;
             list.add(new PlayerEntityPredict(target, this.maxMotionY.getValue(), this.predictTicks.getValueInt(), this.simulation.getValueInt(), this.step.getValue(), this.doubleStep.getValue(), this.jump.getValue(), this.inBlockPause.getValue()));
         }
@@ -541,14 +424,6 @@ extends Module {
                 EndCrystalEntity crystal = (EndCrystalEntity)entity;
                 if (entity.age < this.minAge.getValueInt() || (attackVec = this.getAttackVec(crystal.getPos())) == null || !AutoCrystal.mc.player.canSee((Entity)crystal) && AutoCrystal.mc.player.getEyePos().distanceTo(attackVec) > this.wallRange.getValue()) continue;
                 PlayerEntityPredict selfFor = self;
-                if (this.tpOn()) {
-                    double tpReach = Math.min(this.breakRange.getValue(), 4.0);
-                    if (AutoCrystal.mc.player.getEyePos().distanceTo(crystal.getPos()) > tpReach) {
-                        Vec3d tpVec = this.findTpVec(crystal.getPos(), tpReach);
-                        if (tpVec == null) continue;
-                        selfFor = this.selfAt(tpVec);
-                    }
-                }
                 selfDamage = this.calculateDamage(crystal.getPos(), selfFor.player, selfFor.predict);
                 for (PlayerEntityPredict pap : list) {
                     damage = this.calculateDamage(crystal.getPos(), pap.player, pap.predict);
@@ -573,15 +448,6 @@ extends Module {
                 }
                 if (base && stella.BREAK.isMining(pos.down()) && this.detectMining.getValue() || (attackVec = this.getAttackVec(pos.toBottomCenterPos())) == null || this.behindWall(pos, attackVec) || !this.canTouch(pos.down()) || !this.canPlaceCrystal(pos, true, false)) continue;
                 PlayerEntityPredict selfFor = self;
-                if (this.tpOn()) {
-                    double tpReach = Math.min(this.placeRange.getValue(), 4.5);
-                    Vec3d center = pos.toCenterPos();
-                    if (AutoCrystal.mc.player.getEyePos().distanceTo(center) > tpReach) {
-                        Vec3d tpVec = this.findTpVec(center, tpReach);
-                        if (tpVec == null) continue;
-                        selfFor = this.selfAt(tpVec);
-                    }
-                }
                 selfDamage = base ? this.calculateBaseDamage(pos, selfFor.player, selfFor.predict) : this.calculateDamage(pos, selfFor.player, selfFor.predict);
                 for (PlayerEntityPredict pap : list) {
                     if (base && this.onlyBelow.getValue() && (double)pos.getY() - 0.5 > pap.player.getY()) continue;
@@ -635,11 +501,7 @@ extends Module {
         if (!CombatManager.allows(this)) {
             return;
         }
-        if (this.rush.getValue() && this.tpOn() && entity instanceof PlayerEntity && CombatUtil.isValid(entity, this.effTargetRange())) {
-            this.rushTimer.reset();
-            this.rushForce = true;
-        }
-        if ((this.onAdd.getValue() || this.rushActive()) && entity instanceof EndCrystalEntity && (crystal = (EndCrystalEntity)entity).getBlockPos().equals((Object)this.syncPos)) {
+        if (this.onAdd.getValue() && entity instanceof EndCrystalEntity && (crystal = (EndCrystalEntity)entity).getBlockPos().equals((Object)this.syncPos)) {
             this.doBreak(crystal);
         }
     }
@@ -681,24 +543,11 @@ extends Module {
         Direction side = BlockUtil.getClickSideStrict(pos);
         if (side == null) return false;
         Vec3d vec3d = new Vec3d((double)side.getVector().getX() * 0.5, (double)side.getVector().getY() * 0.5, (double)side.getVector().getZ() * 0.5);
-        if (!(pos.toCenterPos().add(vec3d).distanceTo(AutoCrystal.mc.player.getEyePos()) <= this.effPlaceRange())) return false;
+        if (!(pos.toCenterPos().add(vec3d).distanceTo(AutoCrystal.mc.player.getEyePos()) <= this.placeRange.getValue())) return false;
         return true;
     }
 
     private void doCrystal(BlockPos pos) {
-        if (this.tpCombo.getValue() && this.tpOn() && !this.tpActive) {
-            boolean placeDue = this.canPlaceCrystal(pos, false, false) && (this.rushActive() || this.shouldYawStep() || this.placeTimer.passed((long)this.placeDelay.getValue()));
-            boolean breakDue = !BlockUtil.getEndCrystals(new Box((double)pos.getX(), (double)pos.getY(), (double)pos.getZ(), (double)(pos.getX() + 1), (double)(pos.getY() + 2), (double)(pos.getZ() + 1))).isEmpty() && (this.rushActive() || this.shouldYawStep() || CombatUtil.breakTimer.passed((long)this.breakDelay.getValue()));
-            if (placeDue || breakDue) {
-                this.runWithTp(pos.toCenterPos(), Math.min(Math.min(this.placeRange.getValue(), this.breakRange.getValue()), 4.0), () -> {
-                    if (this.canPlaceCrystal(pos, false, false)) {
-                        this.doPlace(pos, this.rotate.getValue() && this.onPlace.getValue());
-                    }
-                    this.doBreak(pos);
-                });
-                return;
-            }
-        }
         if (this.canPlaceCrystal(pos, false, false)) {
             this.doPlace(pos, this.rotate.getValue() && this.onPlace.getValue());
         }
@@ -717,17 +566,15 @@ extends Module {
             return;
         }
         int old = AutoCrystal.mc.player.getInventory().selectedSlot;
-        this.runWithTp(pos.toCenterPos(), Math.min(this.placeRange.getValue(), 4.5), () -> {
+        this.baseSwap(block);
+        BlockUtil.placeBlock(pos, this.rotate.getValue());
+        if (this.inventory.getValue()) {
             this.baseSwap(block);
-            BlockUtil.placeBlock(pos, this.rotate.getValue());
-            if (this.inventory.getValue()) {
-                this.baseSwap(block);
-                EntityUtil.syncInventory();
-            } else {
-                this.baseSwap(old);
-            }
-            this.baseTimer.reset();
-        });
+            EntityUtil.syncInventory();
+        } else {
+            this.baseSwap(old);
+        }
+        this.baseTimer.reset();
     }
 
     public float calculateDamage(BlockPos pos, PlayerEntity player, PlayerEntity predict) {
@@ -808,7 +655,7 @@ extends Module {
         if (entity.age < this.minAge.getValueInt()) {
             return;
         }
-        if (!this.rushActive() && !this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
+        if (!this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
             if (this.forcePlace.getValue() && this.crystalPos != null) {
                 this.doPlace(this.crystalPos, false);
             }
@@ -820,36 +667,34 @@ extends Module {
             }
             return;
         }
-        if (!this.rushActive() && this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
+        if (this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
             if (this.forcePlace.getValue() && this.crystalPos != null) {
                 this.doPlace(this.crystalPos, false);
             }
             return;
         }
-        this.runWithTp(entity.getPos(), Math.min(this.breakRange.getValue(), 4.0), () -> {
-            this.animation.to = 1.0;
-            this.animation.from = 1.0;
-            CombatUtil.breakTimer.reset();
-            this.syncPos = entity.getBlockPos();
-            mc.getNetworkHandler().sendPacket(PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)AutoCrystal.mc.player.isSneaking()));
-            if (this.resetCD.getValue()) {
-                AutoCrystal.mc.player.resetLastAttackedTicks();
-            }
-            EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
-            if (this.breakRemove.getValue()) {
-                AutoCrystal.mc.world.removeEntity(entity.getId(), Entity.RemovalReason.KILLED);
-            }
-            BlockPos crystalPos = this.crystalPos;
-            if (crystalPos != null && this.displayTarget != null && (double)this.lastDamage >= this.getDamage(this.displayTarget) && this.afterBreak.getValue() && (!this.rotate.getValue() || !this.shouldYawStep() || !this.checkFov.getValue() || stella.ROTATION.inFov(entity.getPos(), this.fov.getValueFloat()))) {
-                this.doPlace(crystalPos, false);
-            }
-            if (this.forceWeb.getValue() && AutoWeb.INSTANCE.isOn()) {
-                AutoWeb.force = true;
-            }
-            if (this.rotate.getValue() && !this.shouldYawStep()) {
-                stella.ROTATION.snapBack();
-            }
-        });
+        this.animation.to = 1.0;
+        this.animation.from = 1.0;
+        CombatUtil.breakTimer.reset();
+        this.syncPos = entity.getBlockPos();
+        mc.getNetworkHandler().sendPacket(PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)AutoCrystal.mc.player.isSneaking()));
+        if (this.resetCD.getValue()) {
+            AutoCrystal.mc.player.resetLastAttackedTicks();
+        }
+        EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
+        if (this.breakRemove.getValue()) {
+            AutoCrystal.mc.world.removeEntity(entity.getId(), Entity.RemovalReason.KILLED);
+        }
+        BlockPos crystalPos = this.crystalPos;
+        if (crystalPos != null && this.displayTarget != null && (double)this.lastDamage >= this.getDamage(this.displayTarget) && this.afterBreak.getValue() && (!this.rotate.getValue() || !this.shouldYawStep() || !this.checkFov.getValue() || stella.ROTATION.inFov(entity.getPos(), this.fov.getValueFloat()))) {
+            this.doPlace(crystalPos, false);
+        }
+        if (this.forceWeb.getValue() && AutoWeb.INSTANCE.isOn()) {
+            AutoWeb.force = true;
+        }
+        if (this.rotate.getValue() && !this.shouldYawStep()) {
+            stella.ROTATION.snapBack();
+        }
     }
 
     private void doBreak(BlockPos pos) {
@@ -868,7 +713,7 @@ extends Module {
         for (EndCrystalEntity entity : BlockUtil.getEndCrystals(new Box((double)pos.getX(), (double)pos.getY(), (double)pos.getZ(), (double)(pos.getX() + 1), (double)(pos.getY() + 2), (double)(pos.getZ() + 1)))) {
             Vec3d attackVec;
             if (entity.age < this.minAge.getValueInt() || !entity.isAlive()) continue;
-            if (!this.rushActive() && !this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
+            if (!this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
                 if (this.forcePlace.getValue() && this.crystalPos != null) {
                     this.doPlace(this.crystalPos, false);
                 }
@@ -880,36 +725,34 @@ extends Module {
                 }
                 return;
             }
-            if (!this.rushActive() && this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
+            if (this.shouldYawStep() && !CombatUtil.breakTimer.passed((long)this.breakDelay.getValue())) {
                 if (this.forcePlace.getValue() && this.crystalPos != null) {
                     this.doPlace(this.crystalPos, false);
                 }
                 return;
             }
-            this.runWithTp(entity.getPos(), Math.min(this.breakRange.getValue(), 4.0), () -> {
-                this.animation.to = 1.0;
-                this.animation.from = 1.0;
-                CombatUtil.breakTimer.reset();
-                this.syncPos = pos;
-                mc.getNetworkHandler().sendPacket(PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)AutoCrystal.mc.player.isSneaking()));
-                if (this.resetCD.getValue()) {
-                    AutoCrystal.mc.player.resetLastAttackedTicks();
-                }
-                EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
-                if (this.breakRemove.getValue()) {
-                    AutoCrystal.mc.world.removeEntity(entity.getId(), Entity.RemovalReason.KILLED);
-                }
-                BlockPos crystalPos = this.crystalPos;
-                if (crystalPos != null && this.displayTarget != null && (double)this.lastDamage >= this.getDamage(this.displayTarget) && this.afterBreak.getValue() && (!this.rotate.getValue() || !this.shouldYawStep() || !this.checkFov.getValue() || stella.ROTATION.inFov(entity.getPos(), this.fov.getValueFloat()))) {
-                    this.doPlace(crystalPos, false);
-                }
-                if (this.forceWeb.getValue() && AutoWeb.INSTANCE.isOn()) {
-                    AutoWeb.force = true;
-                }
-                if (this.rotate.getValue() && !this.shouldYawStep()) {
-                    stella.ROTATION.snapBack();
-                }
-            });
+            this.animation.to = 1.0;
+            this.animation.from = 1.0;
+            CombatUtil.breakTimer.reset();
+            this.syncPos = pos;
+            mc.getNetworkHandler().sendPacket(PlayerInteractEntityC2SPacket.attack((Entity)entity, (boolean)AutoCrystal.mc.player.isSneaking()));
+            if (this.resetCD.getValue()) {
+                AutoCrystal.mc.player.resetLastAttackedTicks();
+            }
+            EntityUtil.swingHand(Hand.MAIN_HAND, this.swingMode.getValue());
+            if (this.breakRemove.getValue()) {
+                AutoCrystal.mc.world.removeEntity(entity.getId(), Entity.RemovalReason.KILLED);
+            }
+            BlockPos crystalPos = this.crystalPos;
+            if (crystalPos != null && this.displayTarget != null && (double)this.lastDamage >= this.getDamage(this.displayTarget) && this.afterBreak.getValue() && (!this.rotate.getValue() || !this.shouldYawStep() || !this.checkFov.getValue() || stella.ROTATION.inFov(entity.getPos(), this.fov.getValueFloat()))) {
+                this.doPlace(crystalPos, false);
+            }
+            if (this.forceWeb.getValue() && AutoWeb.INSTANCE.isOn()) {
+                AutoWeb.force = true;
+            }
+            if (this.rotate.getValue() && !this.shouldYawStep()) {
+                stella.ROTATION.snapBack();
+            }
             return;
         }
         if (this.forcePlace.getValue() && this.crystalPos != null) {
@@ -934,28 +777,25 @@ extends Module {
         if (facing != Direction.UP && facing != Direction.DOWN) {
             vec = vec.add(0.0, 0.45, 0.0);
         }
-        if (!this.rushActive() && !this.shouldYawStep() && !this.placeTimer.passed((long)this.placeDelay.getValue())) {
+        if (!this.shouldYawStep() && !this.placeTimer.passed((long)this.placeDelay.getValue())) {
             return;
         }
         if (rotate && !this.faceVector(vec)) {
             return;
         }
-        if (!this.rushActive() && !this.placeTimer.passed((long)this.placeDelay.getValue())) {
+        if (!this.placeTimer.passed((long)this.placeDelay.getValue())) {
             return;
         }
-        this.runWithTp(pos.down().toCenterPos(), Math.min(this.placeRange.getValue(), 4.5), () -> {
-            if (AutoCrystal.mc.player.getMainHandStack().getItem().equals(Items.END_CRYSTAL) || AutoCrystal.mc.player.getOffHandStack().getItem().equals(Items.END_CRYSTAL)) {
-                this.placeTimer.reset();
-                this.syncPos = pos;
-                this.placeCrystal(pos);
-            } else {
-                this.placeTimer.reset();
-                this.syncPos = pos;
-                int old = AutoCrystal.mc.player.getInventory().selectedSlot;
-                int crystal = this.getCrystal();
-                if (crystal == -1) {
-                    return;
-                }
+        if (AutoCrystal.mc.player.getMainHandStack().getItem().equals(Items.END_CRYSTAL) || AutoCrystal.mc.player.getOffHandStack().getItem().equals(Items.END_CRYSTAL)) {
+            this.placeTimer.reset();
+            this.syncPos = pos;
+            this.placeCrystal(pos);
+        } else {
+            this.placeTimer.reset();
+            this.syncPos = pos;
+            int old = AutoCrystal.mc.player.getInventory().selectedSlot;
+            int crystal = this.getCrystal();
+            if (crystal != -1) {
                 this.doSwap(crystal);
                 this.placeCrystal(pos);
                 if (this.autoSwap.getValue() == SwapMode.Silent) {
@@ -965,7 +805,7 @@ extends Module {
                     EntityUtil.syncInventory();
                 }
             }
-        });
+        }
         if (rotate && !this.shouldYawStep()) {
             stella.ROTATION.snapBack();
         }
@@ -1028,7 +868,6 @@ extends Module {
 
     private static enum Page {
         General,
-        Tp,
         Base,
         Misc,
         Rotation,
