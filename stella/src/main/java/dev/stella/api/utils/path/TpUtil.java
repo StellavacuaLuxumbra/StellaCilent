@@ -156,6 +156,20 @@ public class TpUtil {
     }
 
     /**
+     * 检查脚下2格内是否有实体支撑（空中落点判定用）
+     */
+    public static boolean hasSupport(Vec3d vec) {
+        if (mc.world == null) return false;
+        int x = (int) Math.floor(vec.x);
+        int y = (int) Math.floor(vec.y);
+        int z = (int) Math.floor(vec.z);
+        for (int dy = 1; dy <= 2; dy++) {
+            if (isCollisionBlock(new BlockPos(x, y - dy, z))) return true;
+        }
+        return false;
+    }
+
+    /**
      * 检查是否可以放置方块（TP 版本）
      */
     public static boolean canTpPlaceAt(BlockPos pos, boolean ignoreEntities) {
